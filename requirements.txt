@@ -1,0 +1,6 @@
+data-cache
+numpy
+pandas
+scikit-learn
+tensorboard
+torch
