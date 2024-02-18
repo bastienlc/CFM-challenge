@@ -2,8 +2,11 @@ import os
 import time
 from typing import Dict
 
+import numpy as np
+import pandas as pd
 import torch
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 
 class TrainLogger:
@@ -127,3 +130,24 @@ class TrainLogger:
     def __del__(self):
         self.summary_writer.flush()
         self.summary_writer.close()
+
+
+def predict(model, loader):
+    model.eval()
+    with torch.no_grad():
+        y_pred = []
+        for data in tqdm(loader):
+            output = model(data[0])
+            y_pred.append(output.argmax(1).cpu().numpy())
+    return np.concatenate(y_pred)
+
+
+def save(y_pred, file_name="solution.csv"):
+    y_pred = pd.DataFrame(y_pred, columns=["eqt_code_cat"])
+    y_pred["obs_id"] = np.arange(y_pred.shape[0])
+    y_pred.to_csv(
+        file_name,
+        index=False,
+        columns=["obs_id", "eqt_code_cat"],
+        header=["obs_id", "eqt_code_cat"],
+    )

@@ -43,7 +43,7 @@ def load_data(dummy=False, shuffle=True, seed=42):
     X = X[:, :, 1:]
     X_test = X_test.to_numpy()
     X_test = X_test.reshape(-1, 100, X_test.shape[1])
-    X_test = X_test[1:, :, :]
+    X_test = X_test[:, :, 1:]
 
     # Y
     y = y.set_index("obs_id").to_numpy().reshape(-1)
@@ -57,7 +57,9 @@ def load_data(dummy=False, shuffle=True, seed=42):
     return X[shuffled_index, :, :], y[shuffled_index], X_test
 
 
-def get_data_loaders(X_train, y_train, X_val, y_val, device, batch_size=32):
+def get_data_loaders(
+    X_train, y_train, X_val, y_val, device, batch_size=32, shuffle=True
+):
     X_train = torch.FloatTensor(X_train).to(device)
     y_train = torch.LongTensor(y_train).to(device)
 
@@ -66,12 +68,21 @@ def get_data_loaders(X_train, y_train, X_val, y_val, device, batch_size=32):
 
     train_dataset = torch.utils.data.TensorDataset(X_train, y_train)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True
+        train_dataset, batch_size=batch_size, shuffle=shuffle
     )
 
     val_dataset = torch.utils.data.TensorDataset(X_val, y_val)
     val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=True
+        val_dataset, batch_size=batch_size, shuffle=shuffle
     )
 
     return train_loader, val_loader
+
+
+def get_test_loader(X_test, device, batch_size=32):
+    X_test = torch.FloatTensor(X_test).to(device)
+    test_dataset = torch.utils.data.TensorDataset(X_test)
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False
+    )
+    return test_loader
