@@ -1,8 +1,15 @@
+"""The main way to load the data is through the load_data function which reads the CSV file, and is cached using the numpy_cache decorator. However this is always quite slow so the CFMDataset dataset preprocesses the data and stores it as .pt files."""
+
+import os
+
 import numpy as np
 import pandas as pd
 import torch
 from data_cache import numpy_cache
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
 
 @numpy_cache
@@ -58,32 +65,92 @@ def load_data(dummy=False, shuffle=True, seed=42):
     return X[shuffled_index, :, :], y[shuffled_index], X_test
 
 
-def get_data_loaders(
-    X_train, y_train, X_val, y_val, device, batch_size=32, shuffle=True
-):
-    X_train = torch.FloatTensor(X_train).to(device)
-    y_train = torch.LongTensor(y_train).to(device)
+class CFMDataset(Dataset):
+    def __init__(
+        self,
+        index,
+        split="train",
+        process=False,
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    ):
+        """Index is a list of indices of the data to use for this split"""
+        self.split = split
+        self.index = index
+        self.processed_dir = f"./data/processed/{split}"
+        self.device = device
 
-    X_val = torch.FloatTensor(X_val).to(device)
-    y_val = torch.LongTensor(y_val).to(device)
+        if process or self.should_process():
+            self.process()
 
-    train_dataset = torch.utils.data.TensorDataset(X_train, y_train)
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=shuffle
+    def should_process(self):
+        return not all(
+            [
+                os.path.exists(os.path.join(self.processed_dir, f"{i}.pt"))
+                for i in self.index
+            ]
+        )
+
+    def process(self):
+        if not os.path.exists(self.processed_dir):
+            os.makedirs(self.processed_dir)
+        X, y, X_test = load_data()
+        if self.split == "train" or self.split == "val":
+            for i in tqdm(self.index, desc="Processing data", leave=False):
+                torch.save(
+                    (
+                        torch.tensor(X[i], dtype=torch.float32, device=self.device),
+                        torch.tensor(y[i], dtype=torch.long, device=self.device),
+                    ),
+                    os.path.join(self.processed_dir, f"{i}.pt"),
+                )
+        elif self.split == "test":
+            for i in tqdm(self.index, desc="Processing data", leave=False):
+                torch.save(
+                    (
+                        torch.tensor(
+                            X_test[i], dtype=torch.float32, device=self.device
+                        ),
+                        torch.tensor(-1, dtype=torch.long, device=self.device),
+                    ),
+                    os.path.join(self.processed_dir, f"{i}.pt"),
+                )
+        else:
+            raise ValueError("split should be 'train', 'val' or 'test'")
+
+    def __len__(self):
+        return len(self.index)
+
+    def __getitem__(self, idx):
+        return torch.load(os.path.join(self.processed_dir, f"{self.index[idx]}.pt"))
+
+
+def get_train_loaders(batch_size=32, shuffle=True, test_size=0.1, seed=42):
+    num_training_samples = 160800
+
+    train_index, val_index = train_test_split(
+        range(num_training_samples), test_size=test_size, random_state=seed
     )
 
-    val_dataset = torch.utils.data.TensorDataset(X_val, y_val)
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=shuffle
+    train_dataset = CFMDataset(train_index, split="train")
+    val_dataset = CFMDataset(val_index, split="val")
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
     )
 
     return train_loader, val_loader
 
 
-def get_test_loader(X_test, device, batch_size=32):
-    X_test = torch.FloatTensor(X_test).to(device)
-    test_dataset = torch.utils.data.TensorDataset(X_test)
-    test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False
-    )
+def get_test_loader(batch_size=32):
+    num_test_samples = 81600
+    test_index = range(num_test_samples)
+    test_dataset = CFMDataset(test_index, split="test")
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
     return test_loader

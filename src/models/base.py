@@ -1,3 +1,6 @@
+from typing import List
+
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -5,15 +8,18 @@ import torch.nn as nn
 class Base(nn.Module):
     def __init__(
         self,
-        num_features,
-        num_class,
-        embed_features,
-        num_embed_features,
-        encode_features,
-        embedding_dim=8,
-        d_hidden=128,
-        num_layers=2,
-        dropout=0.1,
+        num_features: int,
+        num_class: int,
+        embed_features: List[int],
+        num_embed_features: List[int],
+        encode_features: List[int],
+        embedding_dim: int = 8,
+        d_hidden: int = 128,
+        num_layers: int = 2,
+        dropout: float = 0.1,
+        device: torch.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        ),
     ):
         super(Base, self).__init__()
 
@@ -26,9 +32,22 @@ class Base(nn.Module):
         self.embedding_dim = embedding_dim
         self.d_hidden = d_hidden
         self.num_layers = num_layers
+        self.device = device
 
-        self.embbeddings = nn.ParameterList(
-            [nn.Parameter(torch.randn(n, embedding_dim)) for n in num_embed_features]
+        self.features_not_modified = [
+            i
+            for i in range(self.num_features)
+            if i not in self.embed_features and i not in self.encode_features
+        ]
+
+        self.embbeddings = nn.Embedding(
+            sum(self.num_embed_features),
+            self.embedding_dim,
+        )
+        self.embeddings_offset = torch.tensor(
+            np.cumsum(self.num_embed_features) - self.num_embed_features[0],
+            dtype=torch.int,
+            device=self.device,
         )
 
         self.input_dim = sum(
@@ -59,22 +78,30 @@ class Base(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        input = torch.zeros(x.shape[0], x.shape[1], self.input_dim).to(x.device)
+        batch_size = x.shape[0]
+        input = torch.zeros(batch_size, x.shape[1], self.input_dim, device=x.device)
         count = 0
-        for i in self.encode_features:
-            input[:, :, count] = self.encoder(x[:, :, i])
-            count += 1
 
-        for i, j in enumerate(self.embed_features):
-            input[:, :, count : count + self.embedding_dim] = self.embbeddings[i][
-                x[:, :, j].type(torch.int)
-            ]
-            count += self.embedding_dim
+        # Encoded features
+        input[:, :, count : count + len(self.encode_features)] = self.encoder(
+            x[:, :, self.encode_features]
+        )
+        count += len(self.encode_features)
 
-        for i in range(self.num_features):
-            if i not in self.embed_features and i not in self.encode_features:
-                input[:, :, count] = x[:, :, i]
-                count += 1
+        # Embedded features
+        input[:, :, count : count + self.embedding_dim * len(self.embed_features)] = (
+            self.embbeddings(
+                x[:, :, self.embed_features].type(torch.int) + self.embeddings_offset
+            )
+        ).reshape(batch_size, 100, self.embedding_dim * len(self.embed_features))
+        count += self.embedding_dim * len(self.embed_features)
+
+        # Other features
+        input[:, :, count:] = x[
+            :,
+            :,
+            self.features_not_modified,
+        ]
 
         output, (h, c) = self.lstm(input)
 
@@ -85,4 +112,4 @@ class Base(nn.Module):
         ).softmax(dim=1)
 
     def __str__(self):
-        return f"Base(num_features={self.num_features}, num_class={self.num_class}, embed_features={self.embed_features}, num_embed_features={self.num_embed_features}, encode_features={self.encode_features}, embedding_dim={self.embedding_dim}, d_hidden={self.d_hidden}, num_layers={self.num_layers})"
+        return f"Base(num_features={self.num_features}, num_class={self.num_class}, embed_features={self.embed_features}, num_embed_features={self.num_embed_features}, encode_features={self.encode_features}, embedding_dim={self.embedding_dim}, d_hidden={self.d_hidden}, num_layers={self.num_layers}, dropout={self.dropout.p})"
