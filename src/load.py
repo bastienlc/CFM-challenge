@@ -72,12 +72,15 @@ class CFMDataset(Dataset):
         split="train",
         process=False,
         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+        cache=True,
     ):
         """Index is a list of indices of the data to use for this split"""
         self.split = split
         self.index = index
         self.processed_dir = f"./data/processed/{split}"
         self.device = device
+        self.cache = cache
+        self.data = {}
 
         if process or self.should_process():
             self.process()
@@ -121,7 +124,13 @@ class CFMDataset(Dataset):
         return len(self.index)
 
     def __getitem__(self, idx):
-        return torch.load(os.path.join(self.processed_dir, f"{self.index[idx]}.pt"))
+        if self.cache and idx in self.data:
+            return self.data[idx]
+        else:
+            data = torch.load(os.path.join(self.processed_dir, f"{self.index[idx]}.pt"))
+            if self.cache:
+                self.data[idx] = data
+            return data
 
 
 def get_train_loaders(batch_size=32, shuffle=True, test_size=0.1, seed=42):
