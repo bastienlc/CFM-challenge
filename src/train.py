@@ -38,6 +38,7 @@ def train(
     for epoch in range(logger.last_epoch + 1, epochs + 1):
         model.train()
         train_loss = 0
+        train_accuracy = 0
 
         # TRAIN
         for data, target in train_loader:
@@ -49,8 +50,15 @@ def train(
             loss.backward()
             optimizer.step()
 
+            prediction = torch.argmax(output, dim=1)
+            train_accuracy += (prediction == target).sum().item()
+
         scheduler.step()
-        logger.log(epoch, train_loss=train_loss / len(X_train))
+        logger.log(
+            epoch,
+            train_loss=train_loss / len(X_train),
+            additional_metrics={"train_accuracy": train_accuracy / len(X_train)},
+        )
 
         # EVAL
         model.eval()
@@ -66,7 +74,7 @@ def train(
             epoch,
             val_loss=val_loss / len(X_val),
             val_accuracy=accuracy / len(X_val),
-            learning_rate=optimizer.param_groups[0]["lr"],
+            additional_metrics={"learning_rate": optimizer.param_groups[0]["lr"]},
         )
         logger.save(model, optimizer, val_accuracy=accuracy / len(X_val))
         logger.print(epoch)

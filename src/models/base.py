@@ -13,6 +13,7 @@ class Base(nn.Module):
         embedding_dim=8,
         d_hidden=128,
         num_layers=2,
+        dropout=0.1,
     ):
         super(Base, self).__init__()
 
@@ -55,6 +56,8 @@ class Base(nn.Module):
 
         self.encoder = lambda u: torch.sin(torch.pi * u / 100)
 
+        self.dropout = nn.Dropout(dropout)
+
     def forward(self, x):
         input = torch.zeros(x.shape[0], x.shape[1], self.input_dim).to(x.device)
         count = 0
@@ -76,7 +79,9 @@ class Base(nn.Module):
         output, (h, c) = self.lstm(input)
 
         return self.linear(
-            h.transpose(0, 1).reshape(-1, 2 * self.num_layers * self.d_hidden)
+            self.dropout(
+                h.transpose(0, 1).reshape(-1, 2 * self.num_layers * self.d_hidden)
+            )
         ).softmax(dim=1)
 
     def __str__(self):

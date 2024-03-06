@@ -48,11 +48,13 @@ class TrainLogger:
             self.save_dir = load
 
             with open(f"{self.save_dir}/model.txt", "r") as file:
-                if file.readline() != str(model):
-                    raise ValueError("Model does not match the one saved")
+                if file.read() != str(model):
+                    raise ValueError(
+                        f"Model does not match the one saved, expected {file.read()} but got {str(model)}"
+                    )
 
             with open(f"{self.save_dir}/parameters.txt", "r") as file:
-                saved_parameters = file.readline()
+                saved_parameters = file.read()
                 if saved_parameters != str(parameters):
                     print("Warning: training resumed with different parameters.")
                     print("Saved:", saved_parameters)
@@ -74,7 +76,7 @@ class TrainLogger:
         train_loss=None,
         val_loss=None,
         val_accuracy=None,
-        learning_rate=None,
+        additional_metrics=None,
     ):
         if train_loss is not None:
             self.summary_writer.add_scalar("loss/train", train_loss, epoch)
@@ -97,10 +99,11 @@ class TrainLogger:
             if val_accuracy > self.best_accuracy:
                 self.best_accuracy = val_accuracy
 
-        if learning_rate is not None:
-            self.summary_writer.add_scalar("learning_rate", learning_rate, epoch)
-            with open(f"{self.save_dir}/learning_rate.csv", "a") as file:
-                file.write(f"{epoch},{learning_rate}\n")
+        if additional_metrics is not None:
+            for name, value in additional_metrics.items():
+                self.summary_writer.add_scalar(name, value, epoch)
+                with open(f"{self.save_dir}/{name}.csv", "a") as file:
+                    file.write(f"{epoch},{value}\n")
 
     def save(
         self,
@@ -124,7 +127,7 @@ class TrainLogger:
 
     def print(self, epoch):
         print(
-            f"Epoch {epoch}: train_loss={self.train_loss}, val_loss={self.val_loss}, val_accuracy={self.val_accuracy}",
+            f"Epoch {epoch}: train_loss={self.train_loss:.2E}, val_loss={self.val_loss:.2E}, val_accuracy={self.val_accuracy:.2f}",
         )
 
     def __del__(self):

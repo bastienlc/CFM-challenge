@@ -28,7 +28,7 @@ model = Base(
     num_layers=2,
 ).to(device)
 
-load = "runs/18-02_18:57:47"
+load = "runs/06-03_18:37:07"
 
 model.load_state_dict(torch.load(f"{load}/model.pt"))
 
