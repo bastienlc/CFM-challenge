@@ -41,7 +41,7 @@ def train(
         train_accuracy = 0
 
         # TRAIN
-        for data, target in train_loader:
+        for data, target in tqdm(train_loader, leave=False):
             output = model(data)
             loss = loss_function(output, target)
             train_loss += loss.item()
