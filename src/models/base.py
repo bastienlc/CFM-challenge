@@ -45,7 +45,7 @@ class Base(nn.Module):
             self.embedding_dim,
         )
         self.embeddings_offset = torch.tensor(
-            np.cumsum(self.num_embed_features) - self.num_embed_features[0],
+            np.concatenate(([0], np.cumsum(self.num_embed_features)[:-1])),
             dtype=torch.int,
             device=self.device,
         )
