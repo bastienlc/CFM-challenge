@@ -8,14 +8,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 embed_features = [0, 2, 3, 9]  # venue, action, side, trade
 num_embed_features = [6, 3, 2, 2]
 encode_features = [1]
-
-# Model
 model = Base(
-    11,
-    24,
-    embed_features,
-    num_embed_features,
-    encode_features,
+    num_features=11,
+    num_class=24,
+    embed_features=embed_features,
+    num_embed_features=num_embed_features,
+    encode_features=encode_features,
     d_hidden=128,
     embedding_dim=8,
     num_layers=2,
