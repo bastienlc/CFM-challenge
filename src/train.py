@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from .load import get_train_loaders
+from .datasets import CFMGraphDataset
+from .loaders import get_train_loaders
 from .utils import TrainLogger
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,7 +27,9 @@ def train(
 
     loss_function = torch.nn.CrossEntropyLoss()
 
-    train_loader, val_loader = get_train_loaders(batch_size=batch_size)
+    train_loader, val_loader = get_train_loaders(
+        batch_size=batch_size, dataset=CFMGraphDataset
+    )
     num_train_samples = len(train_loader.dataset)
     num_val_samples = len(val_loader.dataset)
 
@@ -36,9 +39,9 @@ def train(
         train_accuracy = 0
 
         # TRAIN
-        for data, target in tqdm(train_loader, leave=False):
-            output = model(data)
-            loss = loss_function(output, target)
+        for batch in tqdm(train_loader, leave=False):
+            output = model(batch)
+            loss = loss_function(output, batch.y)
             train_loss += loss.item()
 
             optimizer.zero_grad()
@@ -46,7 +49,7 @@ def train(
             optimizer.step()
 
             prediction = torch.argmax(output, dim=1)
-            train_accuracy += (prediction == target).sum().item()
+            train_accuracy += (prediction == batch.y).sum().item()
 
         scheduler.step()
         logger.log(
@@ -60,10 +63,10 @@ def train(
         with torch.no_grad():
             val_loss = 0
             accuracy = 0
-            for data, target in val_loader:
-                output = model(data)
-                val_loss += loss_function(output, target).item()
-                accuracy += (torch.argmax(output, dim=1) == target).sum().item()
+            for batch in val_loader:
+                output = model(batch)
+                val_loss += loss_function(output, batch.y).item()
+                accuracy += (torch.argmax(output, dim=1) == batch.y).sum().item()
 
         logger.log(
             epoch,

@@ -1,6 +1,6 @@
 import torch
 
-from src.models import Base
+from src.models import DiffPool
 from src.train import train
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -8,15 +8,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 embed_features = [0, 2, 3, 9]  # venue, action, side, trade
 num_embed_features = [6, 3, 2, 2]
 encode_features = [1]
-model = Base(
-    num_features=11,
+model = DiffPool(
+    num_features=9,
     num_class=24,
     embed_features=embed_features,
     num_embed_features=num_embed_features,
-    encode_features=encode_features,
-    d_hidden=128,
     embedding_dim=8,
-    num_layers=2,
     dropout=0.1,
 ).to(device)
 
