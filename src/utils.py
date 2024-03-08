@@ -135,14 +135,22 @@ class TrainLogger:
         self.summary_writer.close()
 
 
-def predict(model, loader):
+def predict(model, loader, device, is_torch_geometric=False):
     model.eval()
     with torch.no_grad():
         y_pred = []
-        for data in tqdm(loader):
-            output = model(data[0])
+        y_true = []
+        for batch in tqdm(loader):
+            batch = batch.to(device)
+            if is_torch_geometric:
+                target = batch.y
+                output = model(batch)
+            else:
+                target = batch[1]
+                output = model(batch[0])
             y_pred.append(output.argmax(1).cpu().numpy())
-    return np.concatenate(y_pred)
+            y_true.append(target.cpu().numpy())
+    return np.concatenate(y_pred), np.concatenate(y_true)
 
 
 def save(y_pred, file_name="solution.csv"):
