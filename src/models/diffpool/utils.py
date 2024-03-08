@@ -47,43 +47,6 @@ def batch_diffpool(S: torch.Tensor, Z: torch.Tensor, A: torch.Tensor):
     return X_out.reshape(batch_size * size, -1), torch.block_diag(*A_out)
 
 
-def ankward_diffpool(
-    S: torch.Tensor, Z: torch.Tensor, A: torch.Tensor, batch: torch.Tensor
-):
-    """
-    Computes diffpool operations for batched S, Z and A. Using this function supposes that all graphs in the batch have different numbers of nodes and have been batched together. This is the case for the first diffpool layer.
-
-    Parameters:
-    -----------
-    S : torch.Tensor
-        Matrix S of shape (num_nodes x n_{l+1})
-    Z : torch.Tensor
-        Matrix Z of shape (num_nodes x d)
-    A : torch.Tensor
-        Matrix A of shape (num_nodes x num_nodes)
-    batch : torch.Tensor
-        Batch index of shape (num_nodes)
-
-    Returns:
-    --------
-    X_out : torch.Tensor
-        Matrix X of shape (num_nodes x d)
-    A_out : torch.Tensor
-        Matrix A of shape (num_nodes x num_nodes)
-    """
-    segment_indices = get_segment_indices(batch)
-    X_out = torch.zeros(len(segment_indices), S.shape[1], Z.shape[1], device=S.device)
-    A_out = torch.zeros(len(segment_indices), S.shape[1], S.shape[1], device=S.device)
-
-    for i, (a, b) in enumerate(segment_indices):
-        X_out[i] = torch.mm(S[a:b].transpose(0, 1), Z[a:b])
-        A_out[i] = torch.mm(torch.mm(S[a:b].transpose(0, 1), A[a:b, a:b]), S[a:b])
-
-    X_out = X_out.reshape(-1, Z.shape[1])
-    A_out = torch.block_diag(*A_out)
-    return X_out, A_out
-
-
 def extract_blocks(A: torch.Tensor, size: int, batch_size: int):
     """
     A: (batch_size * size x batch_size * size)

@@ -14,13 +14,11 @@ class CFMGraphDataset(Dataset):
         index,
         split="train",
         process=False,
-        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         cache=True,
     ):
         """Index is a list of indices of the data to use for this split"""
         self.split = split
         self.index = index
-        self.device = device
         self.cache = cache
         self.data = {}
 
@@ -56,14 +54,12 @@ class CFMGraphDataset(Dataset):
 
         for i in tqdm(self.index, desc="Processing data", leave=False):
             if self.split == "train" or self.split == "val":
-                label = torch.tensor(y[i], dtype=torch.long, device=self.device)
+                label = torch.tensor(y[i], dtype=torch.long)
             else:
-                label = torch.tensor(-1, dtype=torch.long, device=self.device)
+                label = torch.tensor(-1, dtype=torch.long)
 
             graph = nx.Graph()
-            features = torch.zeros(
-                (len(X[i]), 9), dtype=torch.float32, device=self.device
-            )
+            features = torch.zeros((len(X[i]), 9), dtype=torch.float32)
             venues_previous_keys = {}
             order_ids_keys = {}
             for k, row in enumerate(X[i]):
@@ -88,7 +84,6 @@ class CFMGraphDataset(Dataset):
             adj = torch.tensor(
                 nx.adjacency_matrix(graph).todense(),
                 dtype=torch.float32,
-                device=self.device,
             )
             edge_index = adj.nonzero().t().contiguous()
             torch.save(

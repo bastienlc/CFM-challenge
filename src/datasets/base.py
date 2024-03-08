@@ -13,14 +13,12 @@ class CFMDataset(Dataset):
         index,
         split="train",
         process=False,
-        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         cache=True,
     ):
         """Index is a list of indices of the data to use for this split"""
         self.split = split
         self.index = index
         self.processed_dir = f"./data/processed/{split}"
-        self.device = device
         self.cache = cache
         self.data = {}
 
@@ -39,28 +37,22 @@ class CFMDataset(Dataset):
         if not os.path.exists(self.processed_dir):
             os.makedirs(self.processed_dir)
         X, y, X_test = load_data()
-        if self.split == "train" or self.split == "val":
-            for i in tqdm(self.index, desc="Processing data", leave=False):
-                torch.save(
-                    (
-                        torch.tensor(X[i], dtype=torch.float32, device=self.device),
-                        torch.tensor(y[i], dtype=torch.long, device=self.device),
-                    ),
-                    os.path.join(self.processed_dir, f"{i}.pt"),
-                )
-        elif self.split == "test":
-            for i in tqdm(self.index, desc="Processing data", leave=False):
-                torch.save(
-                    (
-                        torch.tensor(
-                            X_test[i], dtype=torch.float32, device=self.device
-                        ),
-                        torch.tensor(-1, dtype=torch.long, device=self.device),
-                    ),
-                    os.path.join(self.processed_dir, f"{i}.pt"),
-                )
-        else:
-            raise ValueError("split should be 'train', 'val' or 'test'")
+        if self.split == "test":
+            X = X_test
+            y = None
+
+        for i in tqdm(self.index, desc="Processing data", leave=False):
+            if self.split == "train" or self.split == "val":
+                label = torch.tensor(y[i], dtype=torch.long)
+            else:
+                label = torch.tensor(-1, dtype=torch.long)
+            torch.save(
+                (
+                    torch.tensor(X[i], dtype=torch.float32),
+                    torch.tensor(label, dtype=torch.long),
+                ),
+                os.path.join(self.processed_dir, f"{i}.pt"),
+            )
 
     def __len__(self):
         return len(self.index)

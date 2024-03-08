@@ -1,6 +1,7 @@
 import torch
 
-from src.models import DiffPool
+from src.datasets import CFMGraphDataset
+from src.models import GATEncoder
 from src.train import train
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -8,17 +9,20 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 embed_features = [0, 2, 3, 9]  # venue, action, side, trade
 num_embed_features = [6, 3, 2, 2]
 encode_features = [1]
-model = DiffPool(
-    num_features=9,
-    num_class=24,
-    embed_features=embed_features,
-    num_embed_features=num_embed_features,
-    embedding_dim=8,
+
+model = GATEncoder(
+    d_features=9,
+    d_out=24,
+    d_hidden_dim=120,
+    num_layers=3,
+    num_heads=3,
+    d_linear_layers=[128],
     dropout=0.1,
+    activation="ReLU",
 ).to(device)
 
 # Train
-batch_size = 128
+batch_size = 512
 epochs = 100
 load = None
 
@@ -32,4 +36,5 @@ model = train(
     epochs=epochs,
     batch_size=batch_size,
     load=load,
+    dataset=CFMGraphDataset,
 )

@@ -6,7 +6,7 @@ from torch_geometric.data import Batch
 from torch_geometric.nn import global_mean_pool
 
 from .encoder import GATEncoder
-from .utils import ankward_diffpool, batch_diffpool, extract_blocks
+from .utils import batch_diffpool, extract_blocks
 
 
 class DiffPoolEncoder(nn.Module):
@@ -69,40 +69,27 @@ class DiffPoolEncoder(nn.Module):
         X = graph_batch.x
         A = torch.zeros((X.shape[0], X.shape[0]), device=X.device)
         A[graph_batch.edge_index[0], graph_batch.edge_index[1]] = 1
-
         batch = graph_batch.batch
         batch_size = torch.max(batch).item() + 1
 
-        # ========= First pooling layer =========
-        S = torch.softmax(
-            self.pooling_layers[0](X, A, batch),
-            dim=-1,
-        )
-        Z = self.embedding_layers[0](X, A, batch)
-
-        X, A = ankward_diffpool(S, Z, A, batch)
-
-        # Update batch for next pooling layer. Assumes nodes are ordered by graph.
-        batch = torch.tensor(
-            [k for k in range(batch_size) for _ in range(self.pooling_sizes[0])]
-        ).to(X.device)
-
-        # ========= Other pooling layers =========
-        for i, size in enumerate(self.pooling_sizes[1:]):
-            S = self.pooling_layers[i + 1](X, A, batch).reshape(batch_size, -1, size)
+        # ========= Pooling layers =========
+        previous_size = 100
+        for i, size in enumerate(self.pooling_sizes):
+            S = self.pooling_layers[i](X, A, batch).reshape(batch_size, -1, size)
             S = torch.softmax(
                 S,
                 dim=-1,
             )
-            Z = self.embedding_layers[i + 1](X, A, batch).reshape(
-                batch_size, self.pooling_sizes[i], -1
+            Z = self.embedding_layers[i](X, A, batch).reshape(
+                batch_size, previous_size, -1
             )
 
             X, A = batch_diffpool(
                 S,
                 Z,
-                extract_blocks(A, self.pooling_sizes[i], batch_size),
+                extract_blocks(A, previous_size, batch_size),
             )
+            previous_size = size
 
             # Update batch for next pooling layer. Assumes nodes are ordered by graph.
             batch = torch.tensor(
@@ -139,12 +126,12 @@ class DiffPool(nn.Module):
             d_features=num_features,
             d_out=num_class,
             d_pooling_layers=[20, 10, 1],
-            d_encoder_hidden_dims=[129, 129, 129],
-            d_encoder_linear_layers=[[128, 64], [128, 64], [128, 64]],
+            d_encoder_hidden_dims=[60, 60, 60],
+            d_encoder_linear_layers=[[64], [64], [64]],
             d_encoder_num_heads=[3, 3, 3],
             d_encoder_num_layers=[3, 3, 3],
-            d_linear=256,
-            dropout=0.05,
+            d_linear=128,
+            dropout=dropout,
         )
 
     def forward(self, x):
