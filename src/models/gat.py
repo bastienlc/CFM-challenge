@@ -9,6 +9,7 @@ class GATEncoder(nn.Module):
     def __init__(
         self,
         d_features: int,
+        d_edges: int,
         d_out: int,
         d_hidden_dim: int = 600,
         num_layers: int = 3,
@@ -21,6 +22,7 @@ class GATEncoder(nn.Module):
     ):
         super(GATEncoder, self).__init__()
         self.num_node_features = d_features
+        self.d_edges = d_edges
         self.nout = d_out
         self.d_hidden_dim = d_hidden_dim
         self.num_layers = num_layers
@@ -38,6 +40,7 @@ class GATEncoder(nn.Module):
             act=activation,
             heads=num_heads,
             concat=True,
+            edge_dim=d_edges,
         )
 
         self.linear_layers = [nn.Linear(d_hidden_dim, d_linear_layers[0])]
@@ -54,7 +57,9 @@ class GATEncoder(nn.Module):
             self.activation = activation
 
     def forward(self, batch):
-        output = self.gat(batch.x, batch.edge_index, batch=batch.batch)
+        output = self.gat(
+            batch.x, batch.edge_index, batch=batch.batch, edge_attr=batch.edge_attr
+        )
 
         for i, layer in enumerate(self.linear_layers):
             output = layer(output)

@@ -3,6 +3,7 @@ import os
 import networkx as nx
 import torch
 from torch_geometric.data import Data, Dataset
+from torch_geometric.utils.convert import from_scipy_sparse_matrix
 from tqdm import tqdm
 
 from ..load import load_data
@@ -44,6 +45,10 @@ class CFMGraphDataset(Dataset):
         )
 
     def process(self):
+        """
+        node features : side, price, bid, ask, bid_size, ask_size, flux
+        edge features : action, trade
+        """
         if not os.path.exists(self.processed_dir):
             os.makedirs(self.processed_dir)
 
@@ -51,7 +56,6 @@ class CFMGraphDataset(Dataset):
         if self.split == "test":
             X = X_test
             y = None
-
         for i in tqdm(self.index, desc="Processing data", leave=False):
             if self.split == "train" or self.split == "val":
                 label = torch.tensor(y[i], dtype=torch.long)
@@ -59,7 +63,7 @@ class CFMGraphDataset(Dataset):
                 label = torch.tensor(-1, dtype=torch.long)
 
             graph = nx.Graph()
-            features = torch.zeros((len(X[i]), 9), dtype=torch.float32)
+            node_features = torch.zeros((len(X[i]), 7), dtype=torch.float32)
             venues_previous_keys = {}
             order_ids_keys = {}
             for k, row in enumerate(X[i]):
@@ -67,27 +71,33 @@ class CFMGraphDataset(Dataset):
                 venue = row[0]
 
                 graph.add_node(k)
-                features[k, :] = torch.tensor(row[2:])
+                node_features[k, :] = torch.tensor(
+                    [row[3], row[4], row[5], row[6], row[7], row[8], row[10]],
+                    dtype=torch.float32,
+                )
+                attr = torch.tensor([row[2], row[9]], dtype=torch.int)
 
                 if venue in venues_previous_keys:
-                    graph.add_edge(k, venues_previous_keys[venue])
-                    graph.add_edge(venues_previous_keys[venue], k)
+                    graph.add_edge(k, venues_previous_keys[venue], edge_attr=attr)
                 venues_previous_keys[venue] = k
 
                 if order_id in order_ids_keys:
-                    graph.add_edge(k, order_ids_keys[order_id][-1])
-                    graph.add_edge(order_ids_keys[order_id][-1], k)
+                    graph.add_edge(k, order_ids_keys[order_id][-1], edge_attr=attr)
                     order_ids_keys[order_id].append(k)
                 else:
                     order_ids_keys[order_id] = [k]
 
-            adj = torch.tensor(
-                nx.adjacency_matrix(graph).todense(),
-                dtype=torch.float32,
-            )
-            edge_index = adj.nonzero().t().contiguous()
+            edge_index, _ = from_scipy_sparse_matrix(nx.adjacency_matrix(graph))
+
             torch.save(
-                Data(x=features, y=label, edge_index=edge_index),
+                Data(
+                    edge_index=edge_index,
+                    x=node_features,
+                    edge_attr=torch.stack(
+                        list(nx.get_edge_attributes(graph, "edge_attr").values())
+                    ).repeat_interleave(2, dim=0),
+                    y=label,
+                ),
                 os.path.join(self.processed_dir, f"{i}.pt"),
             )
 
