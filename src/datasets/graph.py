@@ -46,8 +46,8 @@ class CFMGraphDataset(Dataset):
 
     def process(self):
         """
-        node features : side, price, bid, ask, bid_size, ask_size, flux
-        edge features : action, trade
+        node features : price (4), bid (5), ask (6), bid_size (7), ask_size (8), flux (10)
+        edge features : action (2), side (3), trade (9)
         """
         if not os.path.exists(self.processed_dir):
             os.makedirs(self.processed_dir)
@@ -72,10 +72,13 @@ class CFMGraphDataset(Dataset):
 
                 graph.add_node(k)
                 node_features[k, :] = torch.tensor(
-                    [row[3], row[4], row[5], row[6], row[7], row[8], row[10]],
+                    [venue, k, row[4], row[6] - row[5], row[7], row[8], row[10]],
                     dtype=torch.float32,
                 )
-                attr = torch.tensor([row[2], row[9]], dtype=torch.int)
+                attr = torch.tensor(
+                    [row[2] == 0, row[2] == 1, row[2] == 2, row[3], row[9]],
+                    dtype=torch.int,
+                )
 
                 if venue in venues_previous_keys:
                     graph.add_edge(k, venues_previous_keys[venue], edge_attr=attr)

@@ -140,6 +140,7 @@ def predict(model, loader, device, is_torch_geometric=False):
     with torch.no_grad():
         y_pred = []
         y_true = []
+        probas = []
         for batch in tqdm(loader):
             batch = batch.to(device)
             if is_torch_geometric:
@@ -148,9 +149,12 @@ def predict(model, loader, device, is_torch_geometric=False):
             else:
                 target = batch[1]
                 output = model(batch[0])
-            y_pred.append(output.argmax(1).cpu().numpy())
+            output = output.cpu().numpy()
+            output = np.exp(output) / np.exp(output).sum(1)[:, None]
+            y_pred.append(output.argmax(1))
             y_true.append(target.cpu().numpy())
-    return np.concatenate(y_pred), np.concatenate(y_true)
+            probas.append(output)
+    return (np.concatenate(y_pred), np.concatenate(y_true), np.concatenate(probas))
 
 
 def save(y_pred, file_name="solution.csv"):
