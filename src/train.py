@@ -5,7 +5,7 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from .datasets import CFMDataset
-from .loaders import get_train_loaders
+from .loaders import get_test_loader, get_train_loaders
 from .utils import TrainLogger
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -30,38 +30,63 @@ def train(
     loss_function = torch.nn.CrossEntropyLoss()
 
     train_loader, val_loader = get_train_loaders(batch_size=batch_size, dataset=dataset)
+    test_loader = get_test_loader(batch_size=batch_size, dataset=dataset, shuffle=True)
     num_train_samples = len(train_loader.dataset)
     num_val_samples = len(val_loader.dataset)
 
     for epoch in range(logger.last_epoch + 1, epochs + 1):
         model.train()
         train_loss = 0
+        test_repartition_loss = 0
         train_accuracy = 0
+        i = 0
 
         # TRAIN
-        for batch in tqdm(train_loader, leave=False):
-            batch = batch.to(device)
-            if dataset == CFMDataset:
-                target = batch[1]
-                output = model(batch[0])
+        for train_batch in tqdm(train_loader, leave=False):
+            i += 1
+            # Compute a loss on the test set
+            if epoch > 1 and i % 10 == 0:
+                test_batch = next(iter(test_loader))
+                test_batch = test_batch.to(device)
+                if dataset == CFMDataset:
+                    test_output = model(test_batch[0])
+                else:
+                    test_output = model(test_batch)
+                repartition_loss = torch.nn.functional.one_hot(
+                    test_output.argmax(dim=1)
+                ).sum(dim=0)
+                repartition_loss = repartition_loss / repartition_loss.sum()
+                repartition_loss = (repartition_loss - 1 / 24).square().sum()
             else:
-                target = batch.y
-                output = model(batch)
-            loss = loss_function(output, target)
+                repartition_loss = 0
+
+            train_batch = train_batch.to(device)
+            if dataset == CFMDataset:
+                target = train_batch[1]
+                train_output = model(train_batch[0])
+            else:
+                target = train_batch.y
+                train_output = model(train_batch)
+
+            loss = loss_function(train_output, target) + 0.1 * repartition_loss
             train_loss += loss.item()
+            test_repartition_loss += repartition_loss
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            prediction = torch.argmax(output, dim=1)
+            prediction = torch.argmax(train_output, dim=1)
             train_accuracy += (prediction == target).sum().item()
 
         scheduler.step()
         logger.log(
             epoch,
             train_loss=train_loss / num_train_samples,
-            additional_metrics={"train_accuracy": train_accuracy / num_train_samples},
+            additional_metrics={
+                "train_accuracy": train_accuracy / num_train_samples,
+                "test_repartition_loss": test_repartition_loss,
+            },
         )
 
         # EVAL
