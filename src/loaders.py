@@ -37,7 +37,7 @@ def get_train_loaders(
     return train_loader, val_loader
 
 
-def get_test_loader(batch_size=32, dataset=CFMDataset, num_workers=4):
+def get_test_loader(batch_size=32, dataset=CFMDataset, num_workers=4, shuffle=False):
     if dataset == CFMDataset:
         dataloader = TorchDataLoader
     else:
@@ -47,6 +47,9 @@ def get_test_loader(batch_size=32, dataset=CFMDataset, num_workers=4):
     test_index = range(num_test_samples)
     test_dataset = dataset(test_index, split="test")
     test_loader = dataloader(
-        test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
     )
     return test_loader
