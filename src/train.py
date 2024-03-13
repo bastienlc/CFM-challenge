@@ -1,3 +1,5 @@
+# The MCC loss is adapted from https://github.com/thuml/Versatile-Domain-Adaptation
+
 from typing import Union
 
 import torch
@@ -11,6 +13,30 @@ from .utils import TrainLogger
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def entropy(input, epsilon=1e-5):
+    entropy = -input * torch.log(input + epsilon)
+    entropy = torch.sum(entropy, dim=1)
+    return entropy
+
+
+def mcc_loss(targets, T=2.5):
+    batch_size, nb_class = targets.size()
+    rescaled_targets = nn.Softmax(dim=1)(targets / T)
+
+    targets_weights = entropy(rescaled_targets).detach()
+    targets_weights = 1 + torch.exp(-targets_weights)
+    targets_weights = batch_size * targets_weights / torch.sum(targets_weights)
+
+    cov_matrix = (
+        rescaled_targets.mul(targets_weights.view(-1, 1))
+        .transpose(1, 0)
+        .mm(rescaled_targets)
+    )
+    cov_matrix = cov_matrix / torch.sum(cov_matrix, dim=1)
+
+    return (torch.sum(cov_matrix) - torch.trace(cov_matrix)) / nb_class
+
+
 def train(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
@@ -20,6 +46,8 @@ def train(
     load: Union[str, None] = None,
     dataset=CFMDataset,
     device=device,
+    test_every: int = 10,
+    mu: float = 1.0,
 ):
     logger = TrainLogger(
         model, optimizer, {"epochs": epochs, "batch_size": batch_size}, load=load
@@ -37,7 +65,7 @@ def train(
     for epoch in range(logger.last_epoch + 1, epochs + 1):
         model.train()
         train_loss = 0
-        test_repartition_loss = 0
+        test_mcc = 0
         train_accuracy = 0
         i = 0
 
@@ -45,20 +73,16 @@ def train(
         for train_batch in tqdm(train_loader, leave=False):
             i += 1
             # Compute a loss on the test set
-            if epoch > 1 and i % 10 == 0:
+            if epoch > 1 and i % test_every == 0:
                 test_batch = next(iter(test_loader))
                 test_batch = test_batch.to(device)
                 if dataset == CFMDataset:
                     test_output = model(test_batch[0])
                 else:
                     test_output = model(test_batch)
-                repartition_loss = torch.nn.functional.one_hot(
-                    test_output.argmax(dim=1)
-                ).sum(dim=0)
-                repartition_loss = repartition_loss / repartition_loss.sum()
-                repartition_loss = (repartition_loss - 1 / 24).square().sum()
+                mcc = mcc_loss(test_output)
             else:
-                repartition_loss = 0
+                mcc = 0
 
             train_batch = train_batch.to(device)
             if dataset == CFMDataset:
@@ -68,9 +92,9 @@ def train(
                 target = train_batch.y
                 train_output = model(train_batch)
 
-            loss = loss_function(train_output, target) + 0.1 * repartition_loss
+            loss = loss_function(train_output, target) + mu * mcc
             train_loss += loss.item()
-            test_repartition_loss += repartition_loss
+            test_mcc += mcc
 
             optimizer.zero_grad()
             loss.backward()
@@ -85,7 +109,7 @@ def train(
             train_loss=train_loss / num_train_samples,
             additional_metrics={
                 "train_accuracy": train_accuracy / num_train_samples,
-                "test_repartition_loss": test_repartition_loss,
+                "test_mcc": test_mcc,
             },
         )
 
