@@ -58,7 +58,9 @@ def train(
     loss_function = torch.nn.CrossEntropyLoss()
 
     train_loader, val_loader = get_train_loaders(batch_size=batch_size, dataset=dataset)
-    test_loader = get_test_loader(batch_size=batch_size, dataset=dataset, shuffle=True)
+    test_loader = get_test_loader(
+        batch_size=batch_size, dataset=dataset, shuffle=True, num_workers=0
+    )
     num_train_samples = len(train_loader.dataset)
     num_val_samples = len(val_loader.dataset)
 
