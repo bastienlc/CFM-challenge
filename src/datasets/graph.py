@@ -16,11 +16,13 @@ class CFMGraphDataset(Dataset):
         split="train",
         process=False,
         cache=True,
+        randomize=False,
     ):
         """Index is a list of indices of the data to use for this split"""
         self.split = split
         self.index = index
         self.cache = cache
+        self.randomize = randomize
         self.data = {}
 
         super(CFMGraphDataset, self).__init__("./data")
@@ -114,7 +116,18 @@ class CFMGraphDataset(Dataset):
             data = torch.load(os.path.join(self.processed_dir, f"{self.index[idx]}.pt"))
             if self.cache:
                 self.data[idx] = data
-            return data
+
+            if self.randomize and self.split == "train":
+                random_part = 0.1 * torch.randn(data.x.size(0), data.x.size(1))
+                random_part[:, :2] = 0
+                return Data(
+                    x=data.x + random_part,
+                    edge_index=data.edge_index,
+                    edge_attr=data.edge_attr,
+                    y=data.y,
+                )
+            else:
+                return data
 
     def len(self):
         return self.__len__()
