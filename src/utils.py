@@ -149,9 +149,8 @@ def predict(model, loader, device, is_torch_geometric=False):
             else:
                 target = batch[1]
                 output = model(batch[0])
+            output = torch.nn.functional.softmax(output, dim=1)
             output = output.cpu().numpy()
-            output = np.exp(output) / np.exp(output).sum(1)[:, None]
-            output[np.isnan(output)] = 0
             y_pred.append(output.argmax(1))
             y_true.append(target.cpu().numpy())
             probas.append(output)

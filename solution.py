@@ -31,6 +31,7 @@ model = GATEncoder(
 load = "runs/night_test"
 
 model.load_state_dict(torch.load(f"{load}/model.pt"))
+model.eval()
 
 # Test prediction
 test_y_pred, _, _ = predict(

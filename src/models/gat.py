@@ -28,7 +28,7 @@ class GATEncoder(nn.Module):
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.d_linear_layers = d_linear_layers
-        self.dropout = dropout
+        self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
         self.gat = GAT(
@@ -65,6 +65,6 @@ class GATEncoder(nn.Module):
             output = layer(output)
             if i < len(self.linear_layers) - 1:
                 output = self.activation(output)
-            output = nn.Dropout(self.dropout)(output)
+            output = self.dropout(output)
 
         return global_mean_pool(output, batch.batch)

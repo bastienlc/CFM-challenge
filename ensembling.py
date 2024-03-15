@@ -2,7 +2,6 @@ import os
 
 import numpy as np
 import torch
-from sklearn.linear_model import Ridge
 
 from src.datasets import CFMGraphDataset
 from src.loaders import get_test_loader, get_train_loaders
@@ -23,6 +22,7 @@ def predict_ensemble(model, loader, k: int, split: str):
         else:
             print(f"Computing probas with model {k}")
             model.load_state_dict(torch.load(f"runs/ensemble/{k}/model.pt"))
+            model.eval()
 
             _, _, probas = predict(
                 model,
@@ -40,9 +40,9 @@ def predict_ensemble(model, loader, k: int, split: str):
 
 if __name__ == "__main__":
     train_loader, val_loader = get_train_loaders(
-        batch_size=256, shuffle=False, dataset=CFMGraphDataset
+        batch_size=1024, shuffle=False, dataset=CFMGraphDataset
     )
-    test_loader = get_test_loader(batch_size=256, dataset=CFMGraphDataset)
+    test_loader = get_test_loader(batch_size=1024, dataset=CFMGraphDataset)
     is_torch_geometric = True
 
     model = GATEncoder(
@@ -57,8 +57,11 @@ if __name__ == "__main__":
         activation="ReLU",
     ).to(device)
 
+    print("Test predictions...")
     test_predictions = predict_ensemble(model, test_loader, 26, "test")
+    print("Train predictions...")
     train_predictions = predict_ensemble(model, train_loader, 26, "train")
+    print("Val predictions...")
     val_predictions = predict_ensemble(model, val_loader, 26, "val")
 
     train_y_true = np.concatenate([batch.y.cpu().numpy() for batch in train_loader])
@@ -69,7 +72,8 @@ if __name__ == "__main__":
     val_predictions = np.nan_to_num(val_predictions)
     test_predictions = np.nan_to_num(test_predictions)
 
-    stacking_models = [Ridge(alpha=0.1, tol=0.01) for _ in range(24)]
+    """
+    stacking_models = [RandomForestRegressor(n_jobs=20) for _ in range(24)]
 
     for i in range(24):
         print(f"Training model {i}")
@@ -98,6 +102,11 @@ if __name__ == "__main__":
         ],
         axis=1,
     )
+    """
+
+    train_predictions = train_predictions.mean(axis=0)
+    val_predictions = val_predictions.mean(axis=0)
+    test_predictions = test_predictions.mean(axis=0)
 
     # save to file
     np.save("runs/ensemble/train_predictions.npy", train_predictions)
