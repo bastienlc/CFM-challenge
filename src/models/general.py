@@ -2,10 +2,10 @@ from typing import List
 
 import torch.nn as nn
 from torch_geometric.nn import global_mean_pool
-from torch_geometric.nn.models import GAT
+from torch_geometric.nn.conv import GeneralConv
 
 
-class GATEncoder(nn.Module):
+class GeneralEncoder(nn.Module):
     def __init__(
         self,
         d_features: int,
@@ -20,7 +20,7 @@ class GATEncoder(nn.Module):
         dropout: float = 0.01,
         activation: str = "ReLU",
     ):
-        super(GATEncoder, self).__init__()
+        super(GeneralEncoder, self).__init__()
         self.num_node_features = d_features
         self.d_edges = d_edges
         self.nout = d_out
@@ -31,16 +31,15 @@ class GATEncoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
-        self.gat = GAT(
+        self.conv = GeneralConv(
             in_channels=d_features,
-            hidden_channels=d_hidden_dim,
+            out_channels=d_hidden_dim,
+            in_edge_channels=d_edges,
+            heads=num_heads,
+            attention=True,
             num_layers=num_layers,
             dropout=dropout,
-            v2=True,
             act=activation,
-            heads=num_heads,
-            concat=True,
-            edge_dim=d_edges,
         )
 
         self.linear_layers = [nn.Linear(d_hidden_dim, d_linear_layers[0])]
@@ -57,9 +56,7 @@ class GATEncoder(nn.Module):
             self.activation = activation
 
     def forward(self, batch):
-        output = self.gat(
-            batch.x, batch.edge_index, batch=batch.batch, edge_attr=batch.edge_attr
-        )
+        output = self.conv(batch.x, batch.edge_index, edge_attr=batch.edge_attr)
 
         for i, layer in enumerate(self.linear_layers):
             output = layer(output)

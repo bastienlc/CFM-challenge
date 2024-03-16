@@ -79,7 +79,7 @@ class CFMGraphDataset(Dataset):
                 )
                 attr = torch.tensor(
                     [row[2] == 0, row[2] == 1, row[2] == 2, row[3], row[9]],
-                    dtype=torch.int,
+                    dtype=torch.float32,
                 )
 
                 if venue in venues_previous_keys:
