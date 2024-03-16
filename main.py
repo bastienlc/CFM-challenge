@@ -47,4 +47,4 @@ for k in range(100):
         continue
 
 for dir in saved:
-    make_archive(f"{dir}.zip", "zip", dir)
+    make_archive(f"{dir}", "zip", dir)
