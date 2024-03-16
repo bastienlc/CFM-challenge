@@ -5,117 +5,259 @@ import torch
 
 from src.datasets import CFMGraphDataset
 from src.loaders import get_test_loader, get_train_loaders
-from src.models import GATEncoder
+from src.models import (
+    GATEncoder,
+    GENEncoder,
+    GeneralEncoder,
+    PDNEncoder,
+    PNAEncoder,
+    TransformerEncoder,
+)
 from src.utils import predict, save
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def predict_ensemble(model, loader, k: int, split: str):
-    predictions = []
-    files = [k + 1 for k in range(26)]
+def predict_model_split(model, path, dataset, split):
+    if split == "test":
+        loader = get_test_loader(batch_size=1024, shuffle=False, dataset=dataset)
+    elif split == "train":
+        loader, _ = get_train_loaders(batch_size=1024, shuffle=False, dataset=dataset)
+    elif split == "val":
+        _, loader = get_train_loaders(batch_size=1024, shuffle=False, dataset=dataset)
 
-    for k in files:
+    if os.path.exists(os.path.join(path, f"probas_{split}.pt")):
+        probas = torch.load(os.path.join(path, f"probas_{split}.pt"))
+    else:
+        model = model.to(device)
+        model.load_state_dict(torch.load(os.path.join(path, "model.pt")))
+        model.eval()
 
-        if os.path.exists(f"runs/ensemble/{k}/probas_{split}.pt"):
-            probas = torch.load(f"runs/ensemble/{k}/probas_{split}.pt")
-        else:
-            print(f"Computing probas with model {k}")
-            model.load_state_dict(torch.load(f"runs/ensemble/{k}/model.pt"))
-            model.eval()
+        _, _, probas = predict(
+            model,
+            loader,
+            device,
+            dataset == CFMGraphDataset,
+        )
 
-            _, _, probas = predict(
-                model,
-                loader,
-                device,
-                is_torch_geometric,
-            )
+        torch.save(probas, os.path.join(path, f"probas_{split}.pt"))
 
-            torch.save(probas, f"runs/ensemble/{k}/probas_{split}.pt")
+    return probas
 
-        predictions.append(probas)
 
-    return np.stack(predictions, axis=0)  # (n_models, n_samples, n_classes)
+def predict_ensemble(models_list):
+    train_probas = []
+    val_probas = []
+    test_probas = []
+
+    for k, (model, path, dataset) in enumerate(models_list):
+        print(f"Predicting model {path}... ({k + 1}/{len(models_list)})")
+        train_probas.append(predict_model_split(model, path, dataset, "train"))
+        val_probas.append(predict_model_split(model, path, dataset, "val"))
+        test_probas.append(predict_model_split(model, path, dataset, "test"))
+    return (
+        np.stack(train_probas, axis=0),
+        np.stack(val_probas, axis=0),
+        np.stack(test_probas, axis=0),
+    )
+
+
+def aggregate_probas(probas):
+    return probas.mean(axis=0).argmax(axis=1)
 
 
 if __name__ == "__main__":
+
+    models_list = [
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/mcc_2",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/ensemble/18",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/ensemble/9",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/ensemble/8",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/ensemble/2",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/night_test",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/ensemble/6",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/ensemble/22",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/ensemble/16",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/ensemble/1",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/ensemble/13",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/ensemble/4",
+            CFMGraphDataset,
+        ),
+        (
+            PNAEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/pna",
+            CFMGraphDataset,
+        ),
+        (
+            TransformerEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/transformer",
+            CFMGraphDataset,
+        ),
+        (
+            GeneralEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/general",
+            CFMGraphDataset,
+        ),
+        (
+            PDNEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/pdn",
+            CFMGraphDataset,
+        ),
+        (
+            GENEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=300,
+            ),
+            "runs/gen",
+            CFMGraphDataset,
+        ),
+    ]
+
+    train_probas, val_probas, test_probas = predict_ensemble(models_list)
+
+    train_predictions = aggregate_probas(train_probas)
+    val_predictions = aggregate_probas(val_probas)
+    test_predictions = aggregate_probas(test_probas)
+
+    np.save("runs/train_predictions.npy", train_predictions)
+    np.save("runs/val_predictions.npy", val_predictions)
+    np.save("runs/test_predictions.npy", test_predictions)
+
+    save(test_predictions, "solution.csv")
+
     train_loader, val_loader = get_train_loaders(
         batch_size=1024, shuffle=False, dataset=CFMGraphDataset
     )
-    test_loader = get_test_loader(batch_size=1024, dataset=CFMGraphDataset)
-    is_torch_geometric = True
+    train_labels = np.concatenate([batch.y.cpu().numpy() for batch in train_loader])
+    val_labels = np.concatenate([batch.y.cpu().numpy() for batch in val_loader])
 
-    model = GATEncoder(
-        d_features=7,
-        d_edges=5,
-        d_out=24,
-        d_hidden_dim=300,
-        num_layers=3,
-        num_heads=3,
-        d_linear_layers=[256],
-        dropout=0.01,
-        activation="ReLU",
-    ).to(device)
-
-    print("Test predictions...")
-    test_predictions = predict_ensemble(model, test_loader, 26, "test")
-    print("Train predictions...")
-    train_predictions = predict_ensemble(model, train_loader, 26, "train")
-    print("Val predictions...")
-    val_predictions = predict_ensemble(model, val_loader, 26, "val")
-
-    train_y_true = np.concatenate([batch.y.cpu().numpy() for batch in train_loader])
-    val_y_true = np.concatenate([batch.y.cpu().numpy() for batch in val_loader])
-
-    # replace nas by 0
-    train_predictions = np.nan_to_num(train_predictions)
-    val_predictions = np.nan_to_num(val_predictions)
-    test_predictions = np.nan_to_num(test_predictions)
-
-    """
-    stacking_models = [RandomForestRegressor(n_jobs=20) for _ in range(24)]
-
-    for i in range(24):
-        print(f"Training model {i}")
-        stacking_models[i].fit(train_predictions[:, :, i].T, train_y_true == i)
-
-    train_predictions = np.stack(
-        [
-            model.predict(train_predictions[:, :, i].T)
-            for i, model in enumerate(stacking_models)
-        ],
-        axis=1,
-    )
-
-    val_predictions = np.stack(
-        [
-            model.predict(val_predictions[:, :, i].T)
-            for i, model in enumerate(stacking_models)
-        ],
-        axis=1,
-    )
-
-    test_predictions = np.stack(
-        [
-            model.predict(test_predictions[:, :, i].T)
-            for i, model in enumerate(stacking_models)
-        ],
-        axis=1,
-    )
-    """
-
-    train_predictions = train_predictions.mean(axis=0)
-    val_predictions = val_predictions.mean(axis=0)
-    test_predictions = test_predictions.mean(axis=0)
-
-    # save to file
-    np.save("runs/ensemble/train_predictions.npy", train_predictions)
-    np.save("runs/ensemble/val_predictions.npy", val_predictions)
-    np.save("runs/ensemble/test_predictions.npy", test_predictions)
-
-    # predict
-    y_pred = test_predictions.argmax(axis=1)
-    save(y_pred, "solution.csv")
-
-    print("Validation accuracy:", (val_predictions.argmax(axis=1) == val_y_true).mean())
-    print("Train accuracy:", (train_predictions.argmax(axis=1) == train_y_true).mean())
+    print("Train accuracy:", (train_predictions == train_labels).mean())
+    print("Validation accuracy:", (val_predictions == val_labels).mean())
