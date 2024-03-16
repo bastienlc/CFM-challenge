@@ -24,10 +24,10 @@ def get_train_loaders(
     train_dataset = dataset(train_index, split="train")
     val_dataset = dataset(val_index, split="val")
 
-    if issubclass(dataset, TorchDataset):
-        dataloader = TorchDataLoader
-    elif issubclass(dataset, GeometricDataset):
+    if issubclass(dataset, GeometricDataset):
         dataloader = GeometricDataLoader
+    elif issubclass(dataset, TorchDataset):
+        dataloader = TorchDataLoader
     else:
         raise ValueError("Dataset type not recognized")
 
@@ -42,10 +42,10 @@ def get_train_loaders(
 
 
 def get_test_loader(batch_size=32, dataset=CFMDataset, num_workers=4, shuffle=False):
-    if issubclass(dataset, TorchDataset):
-        dataloader = TorchDataLoader
-    elif issubclass(dataset, GeometricDataset):
+    if issubclass(dataset, GeometricDataset):
         dataloader = GeometricDataLoader
+    elif issubclass(dataset, TorchDataset):
+        dataloader = TorchDataLoader
     else:
         raise ValueError("Dataset type not recognized")
 

@@ -79,24 +79,24 @@ def train(
             # Compute a loss on the test set
             if epoch > 1 and i % test_every == 0:
                 test_batch = next(iter(test_loader))
-                if issubclass(dataset, TorchDataset):
-                    test_output = model(test_batch[0].to(device))
-                elif issubclass(dataset, GeometricDataset):
+                if issubclass(dataset, GeometricDataset):
                     test_batch = test_batch.to(device)
                     test_output = model(test_batch)
+                elif issubclass(dataset, TorchDataset):
+                    test_output = model(test_batch[0].to(device))
                 else:
                     raise ValueError("Dataset type not recognized")
                 mcc = mcc_loss(test_output)
             else:
                 mcc = 0
 
-            if issubclass(dataset, TorchDataset):
-                target = train_batch[1].to(device)
-                train_output = model(train_batch[0].to(device))
-            elif issubclass(dataset, GeometricDataset):
+            if issubclass(dataset, GeometricDataset):
                 train_batch = train_batch.to(device)
                 target = train_batch.y
                 train_output = model(train_batch)
+            elif issubclass(dataset, TorchDataset):
+                target = train_batch[1].to(device)
+                train_output = model(train_batch[0].to(device))
             else:
                 raise ValueError("Dataset type not recognized")
 
@@ -127,13 +127,13 @@ def train(
             val_loss = 0
             accuracy = 0
             for batch in val_loader:
-                if issubclass(dataset, TorchDataset):
-                    target = batch[1].to(device)
-                    output = model(batch[0].to(device))
-                elif issubclass(dataset, GeometricDataset):
+                if issubclass(dataset, GeometricDataset):
                     batch = batch.to(device)
                     target = batch.y
                     output = model(batch)
+                elif issubclass(dataset, TorchDataset):
+                    target = batch[1].to(device)
+                    output = model(batch[0].to(device))
                 else:
                     raise ValueError("Dataset type not recognized")
                 val_loss += loss_function(output, target).item()
