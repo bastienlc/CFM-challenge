@@ -77,20 +77,20 @@ def train(
             # Compute a loss on the test set
             if epoch > 1 and i % test_every == 0:
                 test_batch = next(iter(test_loader))
-                test_batch = test_batch.to(device)
                 if dataset == CFMDataset:
-                    test_output = model(test_batch[0])
+                    test_output = model(test_batch[0].to(device))
                 else:
+                    test_batch = test_batch.to(device)
                     test_output = model(test_batch)
                 mcc = mcc_loss(test_output)
             else:
                 mcc = 0
 
-            train_batch = train_batch.to(device)
             if dataset == CFMDataset:
-                target = train_batch[1]
-                train_output = model(train_batch[0])
+                target = train_batch[1].to(device)
+                train_output = model(train_batch[0].to(device))
             else:
+                train_batch = train_batch.to(device)
                 target = train_batch.y
                 train_output = model(train_batch)
 
@@ -121,11 +121,11 @@ def train(
             val_loss = 0
             accuracy = 0
             for batch in val_loader:
-                batch = batch.to(device)
                 if dataset == CFMDataset:
-                    target = batch[1]
-                    output = model(batch[0])
+                    target = batch[1].to(device)
+                    output = model(batch[0].to(device))
                 else:
+                    batch = batch.to(device)
                     target = batch.y
                     output = model(batch)
                 val_loss += loss_function(output, target).item()

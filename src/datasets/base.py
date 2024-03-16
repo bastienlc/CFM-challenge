@@ -14,11 +14,12 @@ class CFMDataset(Dataset):
         split="train",
         process=False,
         cache=True,
+        name="CFMDataset",
     ):
         """Index is a list of indices of the data to use for this split"""
         self.split = split
         self.index = index
-        self.processed_dir = f"./data/processed/{split}"
+        self.processed_dir = f"./data/processed/{name}/{split}"
         self.cache = cache
         self.data = {}
 
@@ -49,7 +50,7 @@ class CFMDataset(Dataset):
             torch.save(
                 (
                     torch.tensor(X[i], dtype=torch.float32),
-                    torch.tensor(label, dtype=torch.long),
+                    label,
                 ),
                 os.path.join(self.processed_dir, f"{i}.pt"),
             )

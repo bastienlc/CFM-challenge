@@ -155,13 +155,13 @@ def predict(model, loader, device, is_torch_geometric=False):
         y_true = []
         probas = []
         for batch in tqdm(loader):
-            batch = batch.to(device)
             if is_torch_geometric:
+                batch = batch.to(device)
                 target = batch.y
                 output = model(batch)
             else:
-                target = batch[1]
-                output = model(batch[0])
+                target = batch[1].to(device)
+                output = model(batch[0].to(device))
             output = torch.nn.functional.softmax(output, dim=1)
             output = output.cpu().numpy()
             y_pred.append(output.argmax(1))

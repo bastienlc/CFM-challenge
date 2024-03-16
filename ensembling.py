@@ -3,9 +3,10 @@ import os
 import numpy as np
 import torch
 
-from src.datasets import CFMGraphDataset
+from src.datasets import CFMDataset, CFMGraphDataset
 from src.loaders import get_test_loader, get_train_loaders
 from src.models import (
+    Base,
     GATEncoder,
     GENEncoder,
     GeneralEncoder,
@@ -69,6 +70,21 @@ def aggregate_probas(probas):
 if __name__ == "__main__":
 
     models_list = [
+        (
+            Base(
+                num_features=11,
+                num_class=24,
+                embed_features=[0, 2, 3, 9],
+                num_embed_features=[6, 3, 2, 2],
+                encode_features=[],
+                d_hidden=128,
+                embedding_dim=8,
+                num_layers=2,
+                dropout=0.01,
+            ),
+            "runs/lstm",
+            CFMDataset,
+        ),
         (
             GATEncoder(
                 d_features=7,

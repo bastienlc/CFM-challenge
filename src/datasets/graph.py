@@ -17,6 +17,7 @@ class CFMGraphDataset(Dataset):
         process=False,
         cache=True,
         randomize=False,
+        name="CFMGraphDataset",
     ):
         """Index is a list of indices of the data to use for this split"""
         self.split = split
@@ -24,6 +25,7 @@ class CFMGraphDataset(Dataset):
         self.cache = cache
         self.randomize = randomize
         self.data = {}
+        self.name = name
 
         super(CFMGraphDataset, self).__init__("./data")
 
@@ -32,7 +34,7 @@ class CFMGraphDataset(Dataset):
 
     @property
     def processed_dir(self) -> str:
-        return os.path.join(self.root, "processed", self.split)
+        return os.path.join(self.root, "processed", self.name, self.split)
 
     @property
     def processed_file_names(self):
