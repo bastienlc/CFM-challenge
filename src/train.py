@@ -148,4 +148,4 @@ def train(
         logger.save(model, optimizer, val_accuracy=accuracy / num_val_samples)
         logger.print(epoch)
 
-    return model
+    return logger.save_dir
