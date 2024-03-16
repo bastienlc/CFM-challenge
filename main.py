@@ -8,7 +8,7 @@ for k in range(100):
     try:
         torch.cuda.empty_cache()
 
-        print(f"Training model {k + 1} / 20")
+        print(f"Training model {k + 1}")
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
