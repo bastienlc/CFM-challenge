@@ -2,8 +2,10 @@ import os
 
 import numpy as np
 import torch
+import torch.nn as nn
+from torch_geometric.data import Dataset as GeometricDataset
 
-from src.datasets import CFMDataset, CFMGraphDataset
+from src.datasets import CFMDataset, CFMGraphDataset, FeaturesDataset
 from src.loaders import get_test_loader, get_train_loaders
 from src.models import (
     Base,
@@ -38,7 +40,7 @@ def predict_model_split(model, path, dataset, split):
             model,
             loader,
             device,
-            dataset == CFMGraphDataset,
+            issubclass(dataset, GeometricDataset),
         )
 
         torch.save(probas, os.path.join(path, f"probas_{split}.pt"))
@@ -254,6 +256,19 @@ if __name__ == "__main__":
             ),
             "runs/gen",
             CFMGraphDataset,
+        ),
+        (
+            nn.Sequential(
+                nn.Linear(84, 512),
+                nn.ReLU(),
+                nn.Linear(512, 256),
+                nn.ReLU(),
+                nn.Linear(256, 128),
+                nn.ReLU(),
+                nn.Linear(128, 24),
+            ),
+            "runs/mlp",
+            FeaturesDataset,
         ),
     ]
 
