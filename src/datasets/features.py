@@ -32,7 +32,7 @@ class FeaturesDataset(Dataset):
         self.process()
 
     def should_process(self):
-        return self.process or not all(
+        return self.force_process or not all(
             [
                 os.path.exists(os.path.join(self.processed_dir, f"{i}.pt"))
                 for i in self.index
