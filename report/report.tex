@@ -118,14 +118,14 @@
     Each event is described by 11 features, as described in Table \ref{tab:data}. There are 4 categorical features, 5 continuous features, one integer feature (flux) and the last integer feature (order id) also has some categorical properties as it links the different events of the same order.
 
     \subsection{Visualization}
-    To get a better understanding of the data, we performed an in-depth series of visualizations. The idea was to see if some features -original or derived- clearly separated the different stocks. To do so, we made use of different types of statistical plots (boxplots, histograms...) where we hoped, at each step, to see if one or several stocks were clearly identifiable.
+    To get a better understanding of the data, we performed an in-depth series of visualizations. The idea was to see if some features -- original or derived -- were sufficient to differentiate between some stocks. To do so, we made use of different types of statistical plots (boxplots, histograms...) where we hoped, at each step, to see if one or several stocks were clearly identifiable.
 
-    To test the relevancy of the features that we derived, we performed a random forest classification on the training set. We then can look at the feature importance to see which features are the most discriminative.
+    To test the relevance of the features that we derived, we used them to train a random forest classifier on the training set. Then we used feature importance to see if the features we derived were relevant.
 
-    Let's first take a look at some of the interesting features we derived. We need to keep in mind that the goal is to extract an ensemble of features that would be discriminative for different stocks. Also, the following list is not exhaustive, and we will only present some decently clear results.
+    Let's first take a look at some of the interesting features we derived. We need to keep in mind that the goal is to extract an ensemble of features that would be discriminative for different stocks. Also, the following list is not exhaustive, and we will only present the most interesting features.
 
     \paragraph{Bid-ask spread}
-    The very first measure we naturally looked at was the bid-ask spread. Since it is a measure of the liquidity of the stock, we expected it to be a particularly good indicator of the stock. We plotted, on figure \ref{fig:spread}, the boxplot of the bid-ask spread for each stock. More precisely, for each stock, we considered all the bid-ask spreads of all the observations of the stock in the training set. Furthermore, we only collected the points where a limit order was placed, updated, deleted or traded. While we can see that the spread does not seem to completely separate the stocks, it is still a good indicator of the stock with a decent variety of boxplot shapes. As we will see in the results section, the bid-ask spread was actually the most important feature in the random forest classification.
+    The bid-ask spread (difference between the best buying and selling price) is a natural feature to consider in a financial context. Since it is a measure of the liquidity of the stock, we expected it to be a particularly good indicator of the stock. We plotted, on figure \ref{fig:spread}, the boxplot of the bid-ask spread for each stock. More precisely, for each stock, we considered all the bid-ask spreads of all the observations of the stock in the training set. Furthermore, we only collected the points where a limit order was placed, updated, deleted or traded. While we can see that the spread does not seem to completely separate the stocks, it is still a good indicator of the stock with a decent variety of boxplot shapes. As we will see in the results section, the bid-ask spread was actually the most important feature in the random forest classification.
 
     \paragraph{Price outliers (number and price value)}
     An \textit{a priori} good feature we derived was the characteristics of the price outliers. We can see on figure \ref{fig:nb_outliers} representing the percentage of price outliers per number of ticks, that the stocks have relatively different distributions. We plotted on figure \ref{fig:boxplot_outliers} the boxplot of the percentage of price outliers for each stock, over all available observations in the training set. We can see that the stocks do not really separate well. Nevertheless, we get more interesting results when we look at the actual values of the price outliers. We plotted on figures \ref{fig:outliers_bid} and \ref{fig:outliers_ask} the boxplot of the bid and ask price outliers for each stock. For example, we can see that stocks 7 and 20, as well as stocks 5, 8, 15, 17, 19 and 23 distinguish themselves from the others by having a higher percentage of outliers. This type of result is what we are looking for, since it gives additional discriminative information about the stocks.
@@ -196,6 +196,46 @@
         \item Graph transformer \cite{shi-2020}
         \item General GNN \cite{you-2020}
     \end{itemize}
+
+    \section{Training}
+
+    \subsection{Loss}
+    Like in most classification tasks, we used the cross-entropy loss to train our models. When it became clear that the distribution of the test set was very different from the training set, we experimented with different loss functions to make the models more robust to this change. We settled on Minimum Class Confusion (MCC) loss \cite{jin-2020} which aims at minimizing the confusion between the classes on a target domain (the test set in our case).
+
+    Let $(X_n)_{1\leq n\leq N}$ be a batch of testing samples, and $\hat{Y}_n = F(X_n)\in\R^{24}$ be the output of the model for sample $X_n$. MCC uses temperature scaling to soften the predictions :
+    \begin{equation}
+        \tilde{Y}_{n,i} = \frac{\exp\left(\hat{Y}_{n,i}/T\right)}{\sum_{j=1}^{24}\exp\left(\hat{Y}_{n,j}/T\right)}
+    \end{equation}
+    where $T>0$ is the temperature (we used $T=2.5$). We then compute an entropy over the predictions :
+    \begin{equation}
+        H_n = -\sum_{i=1}^{24}\tilde{Y}_{n,i}\log\left(\tilde{Y}_{n,i}\right)
+    \end{equation}
+    This entropy will be used to give more importance to samples for which the model is more confident. We then use the following weights :
+    \begin{equation}
+        W_n = N\times\frac{1+\exp(-H_n)}{\sum_{i=1}^{N} 1+\exp(-H_i)}
+    \end{equation}
+    where $N$ is the batch size. This weight makes use of Laplace smoothing for numerical stability. Finally the class confusion between class $i$ and class $j$ is given by :
+    \begin{equation}
+        C_{i,j} = \tilde{Y}_{\cdot,i}^T \text{diag}(W_1,\dots,W_B) \tilde{Y}_{\cdot,j}
+    \end{equation}
+    This class confusion is normalized to account for class imbalance :
+    \begin{equation}
+        \tilde{C}_{i,j} = \frac{C_{i,j}}{\sum_{k=1}^{24}C_{i,k}}
+    \end{equation}
+    Which gives us the final loss :
+    \begin{equation}
+        \mathcal{L}_{\text{MCC}} = \frac{1}{24}\sum_{i=1}^{24}\sum_{j=1}^{24}\left|\tilde{C}_{i,j}\right|
+    \end{equation}
+
+    Note that this note does not use labels from the target domain, and is therefore unsupervised. It can simply be added to the supervised loss to make the model more robust to the change of distribution :
+    \begin{equation}
+        \mathcal{L} = \mathcal{L}_{\text{CE}} + \mu\mathcal{L}_{\text{MCC}}
+    \end{equation}
+    we found that $\mu=0.1$ was a good value and we could easily go as high as $\mu=1$ or $\mu=10$ for models that trained easily. In practice this MCC loss is computed on a batch of the test set every $10$ iterations of the training loop. We found that it did raise the accuracy of the models on the test set by around $5\%$.
+
+
+
+
     \section{Results}
     \subsection{Statistical models}
     \paragraph{Random Forest Classifier}
