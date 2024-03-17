@@ -2,6 +2,7 @@ import os
 
 import networkx as nx
 import torch
+from sklearn.model_selection import train_test_split
 from torch_geometric.data import Data, Dataset
 from torch_geometric.utils.convert import from_scipy_sparse_matrix
 from tqdm import tqdm
@@ -12,36 +13,39 @@ from ..load import load_data
 class CFMGraphDataset(Dataset):
     def __init__(
         self,
-        index,
         split="train",
         process=False,
         cache=True,
         randomize=False,
         name="CFMGraphDataset",
+        test_size=0.1,
+        seed=42,
     ):
         """Index is a list of indices of the data to use for this split"""
         self.split = split
-        self.index = index
+        self.index = None
         self.cache = cache
         self.randomize = randomize
+        self.test_size = test_size
+        self.seed = seed
         self.data = {}
         self.name = name
+        self.force_process = process
 
-        super(CFMGraphDataset, self).__init__("./data")
-
-        if process or self.should_process():
-            self.process()
+        self._processed_dir = os.path.join("data", "processed", self.name, self.split)
+        self.process()
+        self._processed_file_names = [f"{i}.pt" for i in self.index]
 
     @property
-    def processed_dir(self) -> str:
-        return os.path.join(self.root, "processed", self.name, self.split)
+    def processed_dir(self):
+        return self._processed_dir
 
     @property
     def processed_file_names(self):
-        return [f"{i}.pt" for i in self.index]
+        return self._processed_file_names
 
     def should_process(self):
-        return not all(
+        return self.force_process or not all(
             [
                 os.path.exists(os.path.join(self.processed_dir, f"{i}.pt"))
                 for i in self.index
@@ -60,53 +64,66 @@ class CFMGraphDataset(Dataset):
         if self.split == "test":
             X = X_test
             y = None
-        for i in tqdm(self.index, desc="Processing data", leave=False):
-            if self.split == "train" or self.split == "val":
-                label = torch.tensor(y[i], dtype=torch.long)
-            else:
-                label = torch.tensor(-1, dtype=torch.long)
-
-            graph = nx.Graph()
-            node_features = torch.zeros((len(X[i]), 7), dtype=torch.float32)
-            venues_previous_keys = {}
-            order_ids_keys = {}
-            for k, row in enumerate(X[i]):
-                order_id = row[1]
-                venue = row[0]
-
-                graph.add_node(k)
-                node_features[k, :] = torch.tensor(
-                    [venue, k, row[4], row[6] - row[5], row[7], row[8], row[10]],
-                    dtype=torch.float32,
-                )
-                attr = torch.tensor(
-                    [row[2] == 0, row[2] == 1, row[2] == 2, row[3], row[9]],
-                    dtype=torch.float32,
-                )
-
-                if venue in venues_previous_keys:
-                    graph.add_edge(k, venues_previous_keys[venue], edge_attr=attr)
-                venues_previous_keys[venue] = k
-
-                if order_id in order_ids_keys:
-                    graph.add_edge(k, order_ids_keys[order_id][-1], edge_attr=attr)
-                    order_ids_keys[order_id].append(k)
-                else:
-                    order_ids_keys[order_id] = [k]
-
-            edge_index, _ = from_scipy_sparse_matrix(nx.adjacency_matrix(graph))
-
-            torch.save(
-                Data(
-                    edge_index=edge_index,
-                    x=node_features,
-                    edge_attr=torch.stack(
-                        list(nx.get_edge_attributes(graph, "edge_attr").values())
-                    ).repeat_interleave(2, dim=0),
-                    y=label,
-                ),
-                os.path.join(self.processed_dir, f"{i}.pt"),
+            self.index = list(range(len(X)))
+        elif self.split == "train":
+            self.index, _ = train_test_split(
+                list(range(len(X))), test_size=self.test_size, random_state=self.seed
             )
+        elif self.split == "val":
+            _, self.index = train_test_split(
+                list(range(len(X))), test_size=self.test_size, random_state=self.seed
+            )
+        else:
+            raise ValueError(f"Unknown split {self.split}")
+
+        if self.should_process():
+            for i in tqdm(self.index, desc="Processing data", leave=False):
+                if self.split == "train" or self.split == "val":
+                    label = torch.tensor(y[i], dtype=torch.long)
+                else:
+                    label = torch.tensor(-1, dtype=torch.long)
+
+                graph = nx.Graph()
+                node_features = torch.zeros((len(X[i]), 7), dtype=torch.float32)
+                venues_previous_keys = {}
+                order_ids_keys = {}
+                for k, row in enumerate(X[i]):
+                    order_id = row[1]
+                    venue = row[0]
+
+                    graph.add_node(k)
+                    node_features[k, :] = torch.tensor(
+                        [venue, k, row[4], row[6] - row[5], row[7], row[8], row[10]],
+                        dtype=torch.float32,
+                    )
+                    attr = torch.tensor(
+                        [row[2] == 0, row[2] == 1, row[2] == 2, row[3], row[9]],
+                        dtype=torch.float32,
+                    )
+
+                    if venue in venues_previous_keys:
+                        graph.add_edge(k, venues_previous_keys[venue], edge_attr=attr)
+                    venues_previous_keys[venue] = k
+
+                    if order_id in order_ids_keys:
+                        graph.add_edge(k, order_ids_keys[order_id][-1], edge_attr=attr)
+                        order_ids_keys[order_id].append(k)
+                    else:
+                        order_ids_keys[order_id] = [k]
+
+                edge_index, _ = from_scipy_sparse_matrix(nx.adjacency_matrix(graph))
+
+                torch.save(
+                    Data(
+                        edge_index=edge_index,
+                        x=node_features,
+                        edge_attr=torch.stack(
+                            list(nx.get_edge_attributes(graph, "edge_attr").values())
+                        ).repeat_interleave(2, dim=0),
+                        y=label,
+                    ),
+                    os.path.join(self.processed_dir, f"{i}.pt"),
+                )
 
     def __len__(self):
         return len(self.index)

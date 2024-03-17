@@ -1,4 +1,3 @@
-from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader as TorchDataLoader
 from torch.utils.data import Dataset as TorchDataset
 from torch_geometric.data import Dataset as GeometricDataset
@@ -15,14 +14,8 @@ def get_train_loaders(
     dataset=CFMDataset,
     num_workers=4,
 ):
-    num_training_samples = 154992  # after removing outliers
-
-    train_index, val_index = train_test_split(
-        range(num_training_samples), test_size=test_size, random_state=seed
-    )
-
-    train_dataset = dataset(train_index, split="train")
-    val_dataset = dataset(val_index, split="val")
+    train_dataset = dataset(split="train", test_size=test_size, seed=seed)
+    val_dataset = dataset(split="val", test_size=test_size, seed=seed)
 
     if issubclass(dataset, GeometricDataset):
         dataloader = GeometricDataLoader
@@ -49,9 +42,7 @@ def get_test_loader(batch_size=32, dataset=CFMDataset, num_workers=4, shuffle=Fa
     else:
         raise ValueError("Dataset type not recognized")
 
-    num_test_samples = 81600
-    test_index = range(num_test_samples)
-    test_dataset = dataset(test_index, split="test")
+    test_dataset = dataset(split="test")
     test_loader = dataloader(
         test_dataset,
         batch_size=batch_size,
