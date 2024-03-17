@@ -136,8 +136,8 @@ class CFMGraphDataset(Dataset):
 
                 torch.save(
                     Data(
-                        edge_index=torch.tensor(edge_index),
-                        x=torch.tensor(node_features),
+                        edge_index=edge_index,
+                        x=node_arr,
                         edge_attr=torch.stack(
                             list(nx.get_edge_attributes(graph, "edge_attr").values())
                         ).repeat_interleave(2, dim=0),
