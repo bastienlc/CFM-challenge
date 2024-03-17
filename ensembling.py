@@ -270,6 +270,36 @@ if __name__ == "__main__":
             "runs/mlp",
             FeaturesDataset,
         ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=1000,
+                num_layers=3,
+                num_heads=8,
+                d_linear_layers=[512, 256],
+                dropout=0.1,
+                activation="ReLU",
+            ),
+            "runs/big_1",
+            CFMGraphDataset,
+        ),
+        (
+            GATEncoder(
+                d_features=7,
+                d_edges=5,
+                d_out=24,
+                d_hidden_dim=1000,
+                num_layers=3,
+                num_heads=8,
+                d_linear_layers=[512, 256],
+                dropout=0.1,
+                activation="ReLU",
+            ),
+            "runs/big_2",
+            CFMGraphDataset,
+        ),
     ]
 
     train_probas, val_probas, test_probas = predict_ensemble(models_list)
