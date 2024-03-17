@@ -11,7 +11,7 @@ def load_data(
     seed=42,
     normalize=False,
     filter=True,
-    nb_ticks_max=3,
+    nb_ticks_max=5,
 ):
     tick_size=0.01
     """features : {0: "venue", 1: "order_id", 2: "action", 3: "side", 4: "price", 5: "bid", 6: "ask", 7: "bid_size", 9: "ask_size", 9: "trade", 10: "flux"}"""
@@ -46,13 +46,42 @@ def load_data(
 
     print("Removing extreme values... (> " + str(nb_ticks_max) + " ticks)")
     if nb_ticks_max is not None:
+            dummy_row = X.iloc[0]
             X_len_before = len(X)
             X = X[(X["price"] >= X["bid"] - nb_ticks_max*tick_size) & (X["price"] <= X["ask"] + nb_ticks_max*tick_size)]
+            # add the dummy row wherever obs_id is missing
+            max_obs_id = 160800
+            # array of elemnts between 0 and max_obs_id that are not in X.obs_id.unique()
+            missing_obs_id = np.setdiff1d(np.arange(0, max_obs_id), X.obs_id.unique())
+
+            # add missing obs_id to X
+            missing_rows = pd.DataFrame([dummy_row]*len(missing_obs_id))
+            missing_rows["obs_id"] = missing_obs_id
+
+            # merge X and missing_rows on obs_id
+            X = pd.concat([X, missing_rows], axis=0)
+
+            # sort X by obs_id
+            X = X.sort_values("obs_id")
             X_len_after = len(X)
             print(f"    [Train set] Filtering out of range prices: {X_len_before - X_len_after} rows removed over {X_len_before} rows", f"({'%.2f' % (100*(X_len_before - X_len_after)/X_len_before)}%)")
 
             X_test_len_before = len(X_test)
             X_test = X_test[(X_test["price"] >= X_test["bid"] - nb_ticks_max*tick_size) & (X_test["price"] <= X_test["ask"] + nb_ticks_max*tick_size)]
+             # add the dummy row wherever obs_id is missing
+            max_obs_id = 81600
+            # array of elemnts between 0 and max_obs_id that are not in X.obs_id.unique()
+            missing_obs_id = np.setdiff1d(np.arange(0, max_obs_id), X_test.obs_id.unique())
+
+            # add missing obs_id to X
+            missing_rows = pd.DataFrame([dummy_row]*len(missing_obs_id))
+            missing_rows["obs_id"] = missing_obs_id
+
+            # merge X and missing_rows on obs_id
+            X_test = pd.concat([X_test, missing_rows], axis=0)
+
+            # sort X by obs_id
+            X_test = X_test.sort_values("obs_id")
             X_test_len_after = len(X_test)
             print(f"    [Test set] Filtering out of range prices: {X_test_len_before - X_test_len_after} rows removed over {X_test_len_before} rows", f"({'%.2f' % (100*(X_test_len_before - X_test_len_after)/X_test_len_before)}%)")
 

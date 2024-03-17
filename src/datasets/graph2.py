@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from torch_geometric.data import Data, Dataset
 from torch_geometric.utils.convert import from_scipy_sparse_matrix
 from tqdm import tqdm
+from collections import Counter
 
 from ..load import load_data
 
@@ -66,16 +67,23 @@ class CFMGraphDataset(Dataset):
             X = X_test
             y = None
             self.index = list(set(X_test_obs))
+            counter = dict(Counter(X_test_obs))
         elif self.split == "train":
             self.index, _ = train_test_split(
                 list(set(X_obs)), test_size=self.test_size, random_state=self.seed
             )
+            counter = dict(Counter(X_obs))
         elif self.split == "val":
             _, self.index = train_test_split(
                 list(set(X_obs)), test_size=self.test_size, random_state=self.seed
             )
+            counter = dict(Counter(X_obs))
         else:
             raise ValueError(f"Unknown split {self.split}")
+
+        counter = {k: counter[k] for k in self.index}
+
+        current_index = 0
         print("\nStarting processing...")
         if self.should_process():
             for i in tqdm(self.index, desc="Processing data", leave=False):
@@ -93,7 +101,8 @@ class CFMGraphDataset(Dataset):
                 edge_id_features = np.array(["trade", "Limit Order"])
                 edge_id_features_indices = [np.where(features == edge_feature)[0][0] for edge_feature in edge_id_features]
 
-                curr_X = X[X_obs == i]
+                curr_X = X[current_index : current_index + counter[i]]
+                current_index += counter[i]
                 node_arr = torch.zeros((len(curr_X), len(node_features)), dtype=torch.float32)
                 order_ids_keys = {}
                 for k, row in enumerate(curr_X):
