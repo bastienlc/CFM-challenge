@@ -4,4 +4,5 @@ from .gen import GENEncoder
 from .general import GeneralEncoder
 from .pdn import PDNEncoder
 from .pna import PNAEncoder
+from .residuals import ResidualModel
 from .transformer import TransformerEncoder

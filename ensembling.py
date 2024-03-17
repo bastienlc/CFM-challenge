@@ -3,9 +3,11 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
+from matplotlib import pyplot as plt
+from sklearn.base import ClassifierMixin
 from torch_geometric.data import Dataset as GeometricDataset
 
-from src.datasets import CFMDataset, CFMGraphDataset, FeaturesDataset
+from src.datasets import CFMDataset, CFMGraphDataset, FeaturesDataset, FileDataset
 from src.loaders import get_test_loader, get_train_loaders
 from src.models import (
     Base,
@@ -14,6 +16,7 @@ from src.models import (
     GeneralEncoder,
     PDNEncoder,
     PNAEncoder,
+    ResidualModel,
     TransformerEncoder,
 )
 from src.utils import predict, save
@@ -21,27 +24,49 @@ from src.utils import predict, save
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def predict_model_split(model, path, dataset, split):
-    if split == "test":
-        loader = get_test_loader(batch_size=1024, shuffle=False, dataset=dataset)
-    elif split == "train":
-        loader, _ = get_train_loaders(batch_size=1024, shuffle=False, dataset=dataset)
-    elif split == "val":
-        _, loader = get_train_loaders(batch_size=1024, shuffle=False, dataset=dataset)
-
-    if os.path.exists(os.path.join(path, f"probas_{split}.pt")):
-        probas = torch.load(os.path.join(path, f"probas_{split}.pt"))
-    else:
+def load_model(model, path):
+    if isinstance(model, nn.Module):
         model = model.to(device)
         model.load_state_dict(torch.load(os.path.join(path, "model.pt")))
         model.eval()
+    elif isinstance(model, ClassifierMixin):
+        model.load(path)
+    else:
+        raise ValueError("Model type not recognized")
 
-        _, _, probas = predict(
-            model,
-            loader,
-            device,
-            issubclass(dataset, GeometricDataset),
-        )
+    return model
+
+
+def predict_model_split(model, path, dataset, split):
+    if os.path.exists(os.path.join(path, f"probas_{split}.pt")):
+        probas = torch.load(os.path.join(path, f"probas_{split}.pt"))
+    else:
+        if isinstance(model, nn.Module):
+            model = load_model(model, path)
+
+            if split == "test":
+                loader = get_test_loader(
+                    batch_size=1024, shuffle=False, dataset=dataset
+                )
+            elif split == "train":
+                loader, _ = get_train_loaders(
+                    batch_size=1024, shuffle=False, dataset=dataset
+                )
+            elif split == "val":
+                _, loader = get_train_loaders(
+                    batch_size=1024, shuffle=False, dataset=dataset
+                )
+
+            _, _, probas = predict(
+                model,
+                loader,
+                device,
+                issubclass(dataset, GeometricDataset),
+            )
+        else:
+            X = dataset(split=split).X
+            model = load_model(model, path)
+            probas = model.predict_proba(X)
 
         torch.save(probas, os.path.join(path, f"probas_{split}.pt"))
 
@@ -58,11 +83,33 @@ def predict_ensemble(models_list):
         train_probas.append(predict_model_split(model, path, dataset, "train"))
         val_probas.append(predict_model_split(model, path, dataset, "val"))
         test_probas.append(predict_model_split(model, path, dataset, "test"))
-    return (
-        np.stack(train_probas, axis=0),
-        np.stack(val_probas, axis=0),
-        np.stack(test_probas, axis=0),
-    )
+    return train_probas, val_probas, test_probas
+
+
+def accuracy(split, path, dataset):
+    probas = torch.load(os.path.join(path, f"probas_{split}.pt"))
+    predictions = probas.argmax(axis=1)
+
+    if isinstance(dataset, FileDataset):
+        labels = dataset(split=split).y
+    else:
+        if split == "train":
+            loader, _ = get_train_loaders(
+                batch_size=1024, shuffle=False, dataset=dataset
+            )
+        elif split == "val":
+            _, loader = get_train_loaders(
+                batch_size=1024, shuffle=False, dataset=dataset
+            )
+        elif split == "test":
+            loader = get_test_loader(batch_size=1024, shuffle=False, dataset=dataset)
+
+        if issubclass(dataset, GeometricDataset):
+            labels = np.concatenate([batch.y.cpu().numpy() for batch in loader])
+        else:
+            labels = np.concatenate([batch[1].cpu().numpy() for batch in loader])
+
+    return (predictions == labels).mean()
 
 
 def aggregate_probas(probas):
@@ -72,6 +119,7 @@ def aggregate_probas(probas):
 if __name__ == "__main__":
 
     models_list = [
+        (ResidualModel(), "runs/residuals", FileDataset),
         (
             Base(
                 num_features=11,
@@ -304,21 +352,31 @@ if __name__ == "__main__":
 
     train_probas, val_probas, test_probas = predict_ensemble(models_list)
 
-    train_predictions = aggregate_probas(train_probas)
-    val_predictions = aggregate_probas(val_probas)
-    test_predictions = aggregate_probas(test_probas)
-
-    np.save("runs/train_predictions.npy", train_predictions)
-    np.save("runs/val_predictions.npy", val_predictions)
-    np.save("runs/test_predictions.npy", test_predictions)
+    test_predictions = aggregate_probas(np.stack(test_probas, axis=0))
+    # We don't make predictions on train and val because they may have different sizes
 
     save(test_predictions, "solution.csv")
 
-    train_loader, val_loader = get_train_loaders(
-        batch_size=1024, shuffle=False, dataset=CFMGraphDataset
-    )
-    train_labels = np.concatenate([batch.y.cpu().numpy() for batch in train_loader])
-    val_labels = np.concatenate([batch.y.cpu().numpy() for batch in val_loader])
+    if False:
+        train_accuracies = []
+        val_accuracies = []
+        for k, (_, path, dataset) in enumerate(models_list):
+            print(f"Computing accuracies... ({k + 1}/{len(models_list)})")
+            train_accuracies.append(accuracy("train", path, dataset))
+            val_accuracies.append(accuracy("val", path, dataset))
 
-    print("Train accuracy:", (train_predictions == train_labels).mean())
-    print("Validation accuracy:", (val_predictions == val_labels).mean())
+        torch.save(train_accuracies, "runs/train_accuracies.pt")
+        torch.save(val_accuracies, "runs/val_accuracies.pt")
+    else:
+        train_accuracies = torch.load("runs/train_accuracies.pt")
+        val_accuracies = torch.load("runs/val_accuracies.pt")
+
+    plt.figure()
+    plt.plot(train_accuracies, label="Train")
+    plt.plot(val_accuracies, label="Val")
+
+    plt.xticks(
+        range(len(models_list)), [path for _, path, _ in models_list], rotation=90
+    )
+    plt.legend()
+    plt.show()
