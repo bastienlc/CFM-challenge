@@ -5,22 +5,38 @@ from scipy import stats
 from sklearn.preprocessing import LabelEncoder
 
 
-@numpy_cache
+# @numpy_cache
 def load_data(
-    dummy=False, shuffle=True, seed=42, normalize=True, filter=True, resize=False
+    dummy=False,
+    seed=42,
+    normalize=False,
+    filter=True,
+    nb_ticks_max=3,
 ):
+    tick_size=0.01
     """features : {0: "venue", 1: "order_id", 2: "action", 3: "side", 4: "price", 5: "bid", 6: "ask", 7: "bid_size", 9: "ask_size", 9: "trade", 10: "flux"}"""
     np.random.seed(seed)
-    # LOAD
-    if dummy:
-        X = pd.read_csv("data/small_x_train.csv")
-        y = pd.read_csv("data/small_y_train.csv")
-        X_test = pd.read_csv("data/small_x_train.csv")
-    else:
-        X = pd.read_csv("data/x_train.csv")
-        y = pd.read_csv("data/y_train.csv")
-        X_test = pd.read_csv("data/x_test.csv")
 
+    # LOAD
+    print("Loading data...")
+    if dummy:
+        X = pd.read_parquet("data/small_x_train.csv")
+        y = pd.read_parquet("data/small_y_train.csv")
+        X_test = pd.read_parquet("data/small_x_train.csv")
+    else:
+        X = pd.read_parquet("data/X_train.parquet")
+        y = pd.read_parquet("data/y_train.parquet")
+        X_test = pd.read_parquet("data/X_test.parquet")
+
+    print("Adding basic features...")
+
+    X["bid_ask_spread"] = X["ask"] - X["bid"]
+    X["Limit Order"] = (X["price"] == X["bid"]) | (X["price"] == X["ask"])
+
+    X_test["bid_ask_spread"] = X_test["ask"] - X_test["bid"]
+    X_test["Limit Order"] = (X_test["price"] == X_test["bid"]) | (X_test["price"] == X_test["ask"])
+
+    print("Encoding data...")
     # LABELS
     labels_to_encode = ["action", "side", "trade"]
     for label in labels_to_encode:
@@ -28,28 +44,20 @@ def load_data(
         X[label] = label_encoder.fit_transform(X[label])
         X_test[label] = label_encoder.transform(X_test[label])
 
-    # FILL
-    fill_values = X.mean()
-    nb = X.isna().sum().sum()
-    if nb > 0:
-        print("Filling", nb, "NAs in train")
-    X = X.fillna(fill_values)
+    print("Removing extreme values... (> " + str(nb_ticks_max) + " ticks)")
+    if nb_ticks_max is not None:
+            X_len_before = len(X)
+            X = X[(X["price"] >= X["bid"] - nb_ticks_max*tick_size) & (X["price"] <= X["ask"] + nb_ticks_max*tick_size)]
+            X_len_after = len(X)
+            print(f"    [Train set] Filtering out of range prices: {X_len_before - X_len_after} rows removed over {X_len_before} rows", f"({'%.2f' % (100*(X_len_before - X_len_after)/X_len_before)}%)")
 
-    nb = X_test.isna().sum().sum()
-    if nb > 0:
-        print("Filling", nb, "NAs in test")
-    X_test = X_test.fillna(fill_values)
+            X_test_len_before = len(X_test)
+            X_test = X_test[(X_test["price"] >= X_test["bid"] - nb_ticks_max*tick_size) & (X_test["price"] <= X_test["ask"] + nb_ticks_max*tick_size)]
+            X_test_len_after = len(X_test)
+            print(f"    [Test set] Filtering out of range prices: {X_test_len_before - X_test_len_after} rows removed over {X_test_len_before} rows", f"({'%.2f' % (100*(X_test_len_before - X_test_len_after)/X_test_len_before)}%)")
 
-    # REMOVE OUTLIERS
-    if filter:
-        features_to_filter = ["price", "bid", "ask", "bid_size", "ask_size", "flux"]
-        to_remove = []
-        for f in features_to_filter:
-            to_remove.append(X[(np.abs(stats.zscore(X[f])) >= 8)]["obs_id"])
-        to_remove = pd.concat(to_remove)
-        X = X[~X["obs_id"].isin(to_remove)]
-        y = y[~y["obs_id"].isin(to_remove)]
 
+    print("Normalizing data..." + ("(SKIPPED)" if not normalize else ""))
     # NORMALIZE
     if normalize:
         # normalize by group the features that have the same dimension
@@ -86,35 +94,19 @@ def load_data(
                 X[feature] = (X[feature] - mean) / std
                 X_test[feature] = (X_test[feature] - mean) / std
 
+    print("Converting to numpy arrays...")
     # NUMPY AND RESHAPE
-    X = X.to_numpy()
-    X = X.reshape(-1, 100, X.shape[1])
-    X = X[:, :, 1:]
-    X_test = X_test.to_numpy()
-    X_test = X_test.reshape(-1, 100, X_test.shape[1])
-    X_test = X_test[:, :, 1:]
+    features = X.columns[1:].values
+
+    X = X.values
+    X_obs = X[:,0]
+    X = X[:,1:]
+
+    X_test = X_test.values
+    X_test_obs = X_test[:,0]
+    X_test = X_test[:,1:]
 
     # Y
-    y = y.set_index("obs_id").to_numpy().reshape(-1)
+    y = y.values[:,1]
 
-    # RESIZE
-    if resize:
-        # Adapt test data so that its distribution is similar to the train data
-
-        # ask
-        train_ask = X[:, :, 6].reshape(-1)
-        test_ask = X_test[:, :, 6].reshape(-1)
-        test_spread = np.max(train_ask) - np.min(train_ask)
-        train_spread = np.max(test_ask) - np.min(test_ask)
-        test_ask = (
-            test_ask - np.min(test_ask)
-        ) / train_spread * test_spread / 1.8 + np.min(test_ask)
-        X_test[:, :, 6] = test_ask.reshape(-1, 100)
-
-    # SHUFFLE
-    if shuffle:
-        shuffled_index = np.random.permutation(X.shape[0])
-    else:
-        shuffled_index = np.arange(X.shape[0])
-
-    return X[shuffled_index, :, :], y[shuffled_index], X_test
+    return X, X_obs, y, X_test, X_test_obs, features
