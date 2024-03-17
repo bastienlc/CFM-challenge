@@ -11,7 +11,7 @@ def load_data(
     seed=42,
     normalize=False,
     filter=True,
-    nb_ticks_max=5,
+    nb_ticks_max=3,
 ):
     tick_size=0.01
     """features : {0: "venue", 1: "order_id", 2: "action", 3: "side", 4: "price", 5: "bid", 6: "ask", 7: "bid_size", 9: "ask_size", 9: "trade", 10: "flux"}"""
