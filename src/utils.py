@@ -31,11 +31,12 @@ class TrainLogger:
         self.last_epoch = 0
 
         if load is None:
-            self.save_dir = f"{self.dir}/{time.strftime('%d-%m_%H:%M:%S')}"
+            self.save_dir = f"{self.dir}/{time.strftime('%d-%m_%H_%M_%S')}"
 
             if not os.path.exists(self.dir):
                 os.makedirs(self.dir)
             if not os.path.exists(self.save_dir):
+                print(self.save_dir)
                 os.makedirs(self.save_dir)
 
             with open(f"{self.save_dir}/model.txt", "w") as file:
