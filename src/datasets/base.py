@@ -85,7 +85,7 @@ class CFMDataset(Dataset):
             return data
 
     def get_X(self):
-        return np.concatenate([self[i][0].numpy() for i in range(len(self))], axis=0)
+        return np.stack([self[i][0].numpy() for i in range(len(self))], axis=0)
 
     def get_y(self):
-        return np.concatenate([self[i][1].numpy() for i in range(len(self))], axis=0)
+        return np.array([self[i][1].numpy() for i in range(len(self))])

@@ -156,4 +156,4 @@ class CFMGraphDataset(Dataset):
         return self.__getitem__(idx)
 
     def get_y(self):
-        return np.concatenate([self[i].y.numpy() for i in range(len(self))], axis=0)
+        return np.array([self[i].y.numpy() for i in range(len(self))])
