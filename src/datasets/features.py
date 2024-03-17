@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
@@ -85,3 +86,9 @@ class FeaturesDataset(Dataset):
             if self.cache:
                 self.data[idx] = data
             return data
+
+    def get_X(self):
+        return np.concatenate([self[i][0].numpy() for i in range(len(self))], axis=0)
+
+    def get_y(self):
+        return np.concatenate([self[i][1].numpy() for i in range(len(self))], axis=0)

@@ -64,7 +64,7 @@ def predict_model_split(model, path, dataset, split):
                 issubclass(dataset, GeometricDataset),
             )
         else:
-            X = dataset(split=split).X
+            X = dataset(split=split).get_X()
             model = load_model(model, path)
             probas = model.predict_proba(X)
 
@@ -89,25 +89,7 @@ def predict_ensemble(models_list):
 def accuracy(split, path, dataset):
     probas = torch.load(os.path.join(path, f"probas_{split}.pt"))
     predictions = probas.argmax(axis=1)
-
-    if isinstance(dataset, FileDataset):
-        labels = dataset(split=split).y
-    else:
-        if split == "train":
-            loader, _ = get_train_loaders(
-                batch_size=1024, shuffle=False, dataset=dataset
-            )
-        elif split == "val":
-            _, loader = get_train_loaders(
-                batch_size=1024, shuffle=False, dataset=dataset
-            )
-        elif split == "test":
-            loader = get_test_loader(batch_size=1024, shuffle=False, dataset=dataset)
-
-        if issubclass(dataset, GeometricDataset):
-            labels = np.concatenate([batch.y.cpu().numpy() for batch in loader])
-        else:
-            labels = np.concatenate([batch[1].cpu().numpy() for batch in loader])
+    labels = dataset(split=split).get_y()
 
     return (predictions == labels).mean()
 

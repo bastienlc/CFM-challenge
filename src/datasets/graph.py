@@ -1,6 +1,7 @@
 import os
 
 import networkx as nx
+import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
 from torch_geometric.data import Data, Dataset
@@ -153,3 +154,6 @@ class CFMGraphDataset(Dataset):
 
     def get(self, idx):
         return self.__getitem__(idx)
+
+    def get_y(self):
+        return np.concatenate([self[i].y.numpy() for i in range(len(self))], axis=0)
