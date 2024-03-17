@@ -164,6 +164,17 @@
 
     In this section, we describe the different models we used. We experimented with three main types of models: recurrent neural networks which are well suited for sequential data, graph neural networks which exploit the graph representation of the data, and statistical models that exploit features extracted from the sequence of events. From the start we knew that our final prediction would be an ensemble of models, so we explored different types of models to maximize the diversity of the ensemble. Indeed the diversity should improve the robustness of the predictions, especially given the change of distribution between the training and the test set.
 
+    \subsection{Recurrent Neural Networks}
+
+    Long-Short Term Memory (LSTM) networks are a type of recurrent neural network that are well suited for sequential data \cite{hochreiter-1997}. We used a simple LSTM model to extract features from the sequence of events. We used the following architecture inspired by the baseline :
+    \begin{itemize}
+        \item An embedding layer to embed the categorical features (venue, action, side, trade) over $8$ dimensions. The other features are already continuous and do not need to be embedded.
+        \item A bidirectional LSTM layer with $128$ hidden units and two layers.
+        \item A linear layer with one hidden layer of size $128$.
+    \end{itemize}
+
+    This model is simple and fast to train, and it gave us a good baseline to compare with the other models. We quickly reached a validation accuracy of around $50\%$ with this model and some data preprocessing, which was encouraging. However we quickly realized that the model was not robust to the change of distribution between the training and the test set as it only reached around $30\%$ accuracy on the test set.
+
     \subsection{Graph Attention Networks}
 
     Graph Attention Networks (GAT) \cite{velickovic-2018} have been shown to be effective in many tasks. Like other graph neural networks, GATs aggregate information from the neighbors of each node to compute its embedding. The main difference with other models is that GATs use an attention mechanism to weight the neighbors of each node. Specifically we used the improved version of GATs suggested in \cite{brody-2021}.
@@ -197,7 +208,34 @@
         \item General GNN \cite{you-2020}
     \end{itemize}
 
+    None of these models performed as well as the GAT models (although this may be due to more superficial hyperparameter tuning), but they did improve the diversity of the ensemble.
+
+    \subsection{Statistical models}
+
+    We used multiple statistical models on simple features extracted from the data to diversify our ensemble. These models are intuitively more robust because they rely on simple features that are less likely to be affected by the change of distribution. Here is a non exhaustive list of the models we used :
+    \begin{itemize}
+        \item Random Forest Classifier
+        \item Ada Boost Classifier
+        \item Logistic Regression
+        \item K-Nearest Neighbors
+        \item Ridge Classifier
+        \item \dots
+    \end{itemize}
+
+    \subsection{Franck Zibi's model}
+
+    Last year's CFM challenge also involved adapting to a change of distribution between the training and the test set. Inspired by the winning solution of last year's challenge, we devised a similar model. It is a simple model motivated by boosting methods, that learns the residuals of the predictions of a base model.
+    \begin{enumerate}
+        \item A random forest classifier is trained on the training set. This model is able to output a probability distribution over the classes.
+        \item For each class, three models are trained to predict the residuals of the random forest classifier (a random forest regressor, a k-nearest neighbors regressor and a linear regressor).
+        \item For each class, the three models are stacked using a linear regressor.
+    \end{enumerate}
+
+    We can then simply predict the class of a sample by adding the output of the random forest classifier to the output of the stacked models, and taking the class with the highest probability.
+
     \section{Training}
+
+    For all the models we used the same split of the training set into a training and a validation set. We used $90\%$ of the training set for training and $10\%$ for validation. We did not use cross validation because the training set was already very large and well-balanced.
 
     \subsection{Loss}
     Like in most classification tasks, we used the cross-entropy loss to train our models. When it became clear that the distribution of the test set was very different from the training set, we experimented with different loss functions to make the models more robust to this change. We settled on Minimum Class Confusion (MCC) loss \cite{jin-2020} which aims at minimizing the confusion between the classes on a target domain (the test set in our case).
@@ -233,8 +271,21 @@
     \end{equation}
     we found that $\mu=0.1$ was a good value and we could easily go as high as $\mu=1$ or $\mu=10$ for models that trained easily. In practice this MCC loss is computed on a batch of the test set every $10$ iterations of the training loop. We found that it did raise the accuracy of the models on the test set by around $5\%$.
 
+    \subsection{Optimizer}
 
+    We used the Adam optimizer with a starting learning rate of $5\times10^{-3}$. We did not use weight decay as it hindered the training of the models.
 
+    We used a scheduler to automatically decrease the learning rate. The scheduler decreased the learning rate by a factor of $0.95$ every epoch, which yielded a learning rate of around $1\times10^{-3}$ after $30$ epochs which is a typical number of epochs for our models.
+
+    We generally stopped the training quickly when the accuracy on the validation set stopped increasing significantly. This is motivated by the change of distribution between the training and the test set, which means that we do not want to overfit the training set.
+
+    \subsection{Other unsuccessful experiments}
+
+    We tried other tricks to make the models more robust to the change of distribution.
+    \begin{itemize}
+        \item We experimented with data augmentation on the training set : given the high stochasticity of the data, we could easily generate new samples by adding some noise to the prices, the volumes, the flux, etc.
+        \item Starting with a trained model, we extracted the test samples for which it was the most confident, and submitted them to the leaderboard (with the rest left at random). We could infer that we had around $80\%$ accuracy on these samples. Thus we tried fine-tuning a model on these samples, but it did not improve the accuracy on the test set.
+    \end{itemize}
 
     \section{Results}
     \subsection{Statistical models}
