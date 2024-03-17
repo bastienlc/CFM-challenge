@@ -352,7 +352,35 @@ if __name__ == "__main__":
 
     train_probas, val_probas, test_probas = predict_ensemble(models_list)
 
-    test_predictions = aggregate_probas(np.stack(test_probas, axis=0))
+    weights = [
+        1,
+        0.8,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.9,
+        0.9,
+        0.9,
+        0.9,
+        0.9,
+        0.9,
+        0.5,
+        0.5,
+    ]
+    weights = np.array(weights) / np.sum(weights)
+
+    test_predictions = aggregate_probas(
+        weights[:, None, None] * np.stack(test_probas, axis=0)
+    )
     # We don't make predictions on train and val because they may have different sizes
 
     save(test_predictions, "solution.csv")
@@ -372,8 +400,12 @@ if __name__ == "__main__":
         val_accuracies = torch.load("runs/val_accuracies.pt")
 
     plt.figure()
-    plt.plot(train_accuracies, label="Train")
-    plt.plot(val_accuracies, label="Val")
+    plt.bar(
+        np.arange(len(models_list)) - 0.1, train_accuracies, label="Train", width=0.2
+    )
+    plt.bar(np.arange(len(models_list)) + 0.1, val_accuracies, label="Val", width=0.2)
+    plt.plot(np.arange(len(models_list)), weights, label="Weights", color="g")
+    plt.ylim(0, 1.1)
 
     plt.xticks(
         range(len(models_list)), [path for _, path, _ in models_list], rotation=90
