@@ -1,2 +1,2 @@
 from .base import CFMDataset
-from .graph2 import CFMGraphDataset
+from .graph import CFMGraphDataset

@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from torch_geometric.data import Data, Dataset
 from torch_geometric.utils.convert import from_scipy_sparse_matrix
 from tqdm import tqdm
+from collections import Counter
 
 from ..load import load_data
 
@@ -61,63 +62,84 @@ class CFMGraphDataset(Dataset):
         if not os.path.exists(self.processed_dir):
             os.makedirs(self.processed_dir)
 
-        X, y, X_test = load_data()
+        X, X_obs, y, X_test, X_test_obs, features = load_data()
         if self.split == "test":
             X = X_test
             y = None
-            self.index = list(range(len(X)))
+            self.index = list(set(X_test_obs))
+            counter = dict(Counter(X_test_obs))
         elif self.split == "train":
             self.index, _ = train_test_split(
-                list(range(len(X))), test_size=self.test_size, random_state=self.seed
+                list(set(X_obs)), test_size=self.test_size, random_state=self.seed
             )
+            counter = dict(Counter(X_obs))
         elif self.split == "val":
             _, self.index = train_test_split(
-                list(range(len(X))), test_size=self.test_size, random_state=self.seed
+                list(set(X_obs)), test_size=self.test_size, random_state=self.seed
             )
+            counter = dict(Counter(X_obs))
         else:
             raise ValueError(f"Unknown split {self.split}")
 
+        counter = {k: counter[k] for k in self.index}
+
+        current_index = 0
+
+        node_features = np.array(["bid_ask_spread", "side", "price", "bid_size", "ask_size", "venue", "flux"])
+        node_features_indices = [np.where(features == node_feature)[0][0] for node_feature in node_features]
+
+        edge_temp_features = np.array(["trade", "Limit Order"])
+        edge_temp_features_indices = [np.where(features == edge_feature)[0][0] for edge_feature in edge_temp_features]
+
+        edge_id_features = np.array(["trade", "Limit Order"])
+        edge_id_features_indices = [np.where(features == edge_feature)[0][0] for edge_feature in edge_id_features]
+
+        print("\nStarting processing...")
         if self.should_process():
             for i in tqdm(self.index, desc="Processing data", leave=False):
                 if self.split == "train" or self.split == "val":
                     label = torch.tensor(y[i], dtype=torch.long)
                 else:
                     label = torch.tensor(-1, dtype=torch.long)
-
                 graph = nx.Graph()
-                node_features = torch.zeros((len(X[i]), 7), dtype=torch.float32)
-                venues_previous_keys = {}
+
+                curr_X = X[current_index : current_index + counter[i]]
+                current_index += counter[i]
+                node_arr = torch.zeros((len(curr_X), len(node_features)), dtype=torch.float32)
                 order_ids_keys = {}
-                for k, row in enumerate(X[i]):
+                for k, row in enumerate(curr_X):
                     order_id = row[1]
-                    venue = row[0]
 
                     graph.add_node(k)
-                    node_features[k, :] = torch.tensor(
-                        [venue, k, row[4], row[6] - row[5], row[7], row[8], row[10]],
+                    node_arr[k, :] = torch.tensor(
+                        [row[j] for j in node_features_indices],
                         dtype=torch.float32,
                     )
-                    attr = torch.tensor(
-                        [row[2] == 0, row[2] == 1, row[2] == 2, row[3], row[9]],
-                        dtype=torch.float32,
+                    temp_attr = torch.tensor(
+                        [row[j] for j in edge_temp_features_indices],
+                        dtype=torch.int,
                     )
+                    graph.add_edge(k, k-1, edge_attr=temp_attr) # Temporal edge
 
-                    if venue in venues_previous_keys:
-                        graph.add_edge(k, venues_previous_keys[venue], edge_attr=attr)
-                    venues_previous_keys[venue] = k
+                    id_attr = torch.tensor(
+                        [row[j] for j in edge_id_features_indices],
+                        dtype=torch.int,
+                    )
 
                     if order_id in order_ids_keys:
-                        graph.add_edge(k, order_ids_keys[order_id][-1], edge_attr=attr)
+                        graph.add_edge(k, order_ids_keys[order_id][-1], edge_attr=id_attr)
                         order_ids_keys[order_id].append(k)
                     else:
                         order_ids_keys[order_id] = [k]
-
-                edge_index, _ = from_scipy_sparse_matrix(nx.adjacency_matrix(graph))
+                try :
+                    edge_index, _ = from_scipy_sparse_matrix(nx.adjacency_matrix(graph))
+                except :
+                    print("Index fucked up : ", i)
 
                 torch.save(
                     Data(
                         edge_index=edge_index,
-                        x=node_features,
+                        x=node_arr,
                         edge_attr=torch.stack(
                             list(nx.get_edge_attributes(graph, "edge_attr").values())
                         ).repeat_interleave(2, dim=0),

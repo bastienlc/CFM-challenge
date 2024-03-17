@@ -20,9 +20,9 @@ def load_data(
     # LOAD
     print("Loading data...")
     if dummy:
-        X = pd.read_parquet("data/small_x_train.csv")
-        y = pd.read_parquet("data/small_y_train.csv")
-        X_test = pd.read_parquet("data/small_x_train.csv")
+        X = pd.read_parquet("data/small_X_train.parquet")
+        y = pd.read_parquet("data/small_y_train.parquet")
+        X_test = pd.read_parquet("data/small_X_test.parquet")
     else:
         X = pd.read_parquet("data/X_train.parquet")
         y = pd.read_parquet("data/y_train.parquet")
@@ -50,7 +50,7 @@ def load_data(
             X_len_before = len(X)
             X = X[(X["price"] >= X["bid"] - nb_ticks_max*tick_size) & (X["price"] <= X["ask"] + nb_ticks_max*tick_size)]
             # add the dummy row wherever obs_id is missing
-            max_obs_id = 160800
+            max_obs_id = len(X.obs_id.unique())
             # array of elemnts between 0 and max_obs_id that are not in X.obs_id.unique()
             missing_obs_id = np.setdiff1d(np.arange(0, max_obs_id), X.obs_id.unique())
 
@@ -69,7 +69,7 @@ def load_data(
             X_test_len_before = len(X_test)
             X_test = X_test[(X_test["price"] >= X_test["bid"] - nb_ticks_max*tick_size) & (X_test["price"] <= X_test["ask"] + nb_ticks_max*tick_size)]
              # add the dummy row wherever obs_id is missing
-            max_obs_id = 81600
+            max_obs_id = len(X_test.obs_id.unique())
             # array of elemnts between 0 and max_obs_id that are not in X.obs_id.unique()
             missing_obs_id = np.setdiff1d(np.arange(0, max_obs_id), X_test.obs_id.unique())
 

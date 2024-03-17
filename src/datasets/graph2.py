@@ -62,7 +62,7 @@ class CFMGraphDataset(Dataset):
         if not os.path.exists(self.processed_dir):
             os.makedirs(self.processed_dir)
 
-        X, X_obs, y, X_test, X_test_obs, features = load_data()
+        X, X_obs, y, X_test, X_test_obs, features = load_data(dummy=True)
         if self.split == "test":
             X = X_test
             y = None
@@ -84,6 +84,16 @@ class CFMGraphDataset(Dataset):
         counter = {k: counter[k] for k in self.index}
 
         current_index = 0
+
+        node_features = np.array(["bid_ask_spread", "side", "price", "bid_size", "ask_size", "venue", "flux"])
+        node_features_indices = [np.where(features == node_feature)[0][0] for node_feature in node_features]
+
+        edge_temp_features = np.array(["trade", "Limit Order"])
+        edge_temp_features_indices = [np.where(features == edge_feature)[0][0] for edge_feature in edge_temp_features]
+
+        edge_id_features = np.array(["trade", "Limit Order"])
+        edge_id_features_indices = [np.where(features == edge_feature)[0][0] for edge_feature in edge_id_features]
+
         print("\nStarting processing...")
         if self.should_process():
             for i in tqdm(self.index, desc="Processing data", leave=False):
@@ -92,14 +102,6 @@ class CFMGraphDataset(Dataset):
                 else:
                     label = torch.tensor(-1, dtype=torch.long)
                 graph = nx.Graph()
-                node_features = np.array(["bid_ask_spread", "side", "price", "bid_size", "ask_size", "venue", "flux"])
-                node_features_indices = [np.where(features == node_feature)[0][0] for node_feature in node_features]
-
-                edge_temp_features = np.array(["trade", "Limit Order"])
-                edge_temp_features_indices = [np.where(features == edge_feature)[0][0] for edge_feature in edge_temp_features]
-
-                edge_id_features = np.array(["trade", "Limit Order"])
-                edge_id_features_indices = [np.where(features == edge_feature)[0][0] for edge_feature in edge_id_features]
 
                 curr_X = X[current_index : current_index + counter[i]]
                 current_index += counter[i]
