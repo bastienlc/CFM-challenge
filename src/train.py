@@ -4,6 +4,8 @@ from typing import Union
 
 import torch
 import torch.nn as nn
+from torch.utils.data import Dataset as TorchDataset
+from torch_geometric.data import Dataset as GeometricDataset
 from tqdm import tqdm
 
 from .datasets import CFMDataset
@@ -58,7 +60,9 @@ def train(
     loss_function = torch.nn.CrossEntropyLoss()
 
     train_loader, val_loader = get_train_loaders(batch_size=batch_size, dataset=dataset)
-    test_loader = get_test_loader(batch_size=batch_size, dataset=dataset, shuffle=True)
+    test_loader = get_test_loader(
+        batch_size=batch_size, dataset=dataset, shuffle=True, num_workers=0
+    )
     num_train_samples = len(train_loader.dataset)
     num_val_samples = len(val_loader.dataset)
 
@@ -75,22 +79,26 @@ def train(
             # Compute a loss on the test set
             if epoch > 1 and i % test_every == 0:
                 test_batch = next(iter(test_loader))
-                test_batch = test_batch.to(device)
-                if dataset == CFMDataset:
-                    test_output = model(test_batch[0])
-                else:
+                if issubclass(dataset, GeometricDataset):
+                    test_batch = test_batch.to(device)
                     test_output = model(test_batch)
+                elif issubclass(dataset, TorchDataset):
+                    test_output = model(test_batch[0].to(device))
+                else:
+                    raise ValueError("Dataset type not recognized")
                 mcc = mcc_loss(test_output)
             else:
                 mcc = 0
 
-            train_batch = train_batch.to(device)
-            if dataset == CFMDataset:
-                target = train_batch[1]
-                train_output = model(train_batch[0])
-            else:
+            if issubclass(dataset, GeometricDataset):
+                train_batch = train_batch.to(device)
                 target = train_batch.y
                 train_output = model(train_batch)
+            elif issubclass(dataset, TorchDataset):
+                target = train_batch[1].to(device)
+                train_output = model(train_batch[0].to(device))
+            else:
+                raise ValueError("Dataset type not recognized")
 
             loss = loss_function(train_output, target) + mu * mcc
             train_loss += loss.item()
@@ -119,13 +127,15 @@ def train(
             val_loss = 0
             accuracy = 0
             for batch in val_loader:
-                batch = batch.to(device)
-                if dataset == CFMDataset:
-                    target = batch[1]
-                    output = model(batch[0])
-                else:
+                if issubclass(dataset, GeometricDataset):
+                    batch = batch.to(device)
                     target = batch.y
                     output = model(batch)
+                elif issubclass(dataset, TorchDataset):
+                    target = batch[1].to(device)
+                    output = model(batch[0].to(device))
+                else:
+                    raise ValueError("Dataset type not recognized")
                 val_loss += loss_function(output, target).item()
                 accuracy += (torch.argmax(output, dim=1) == target).sum().item()
 
@@ -138,4 +148,4 @@ def train(
         logger.save(model, optimizer, val_accuracy=accuracy / num_val_samples)
         logger.print(epoch)
 
-    return model
+    return logger.save_dir

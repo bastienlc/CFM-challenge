@@ -11,13 +11,13 @@ class GATEncoder(nn.Module):
         d_features: int,
         d_edges: int,
         d_out: int,
-        d_hidden_dim: int = 600,
+        d_hidden_dim: int = 300,
         num_layers: int = 3,
         num_heads: int = 3,
         d_linear_layers: List[int] = [
-            1000,
-        ],  # In addition to the first layer d_hidden_dim -> d_linear_layers[0] and the last layer d_linear_layers[-1] -> d_out
-        dropout: float = 0.1,
+            256,
+        ],
+        dropout: float = 0.01,
         activation: str = "ReLU",
     ):
         super(GATEncoder, self).__init__()
@@ -28,7 +28,7 @@ class GATEncoder(nn.Module):
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.d_linear_layers = d_linear_layers
-        self.dropout = dropout
+        self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
         self.gat = GAT(
@@ -65,6 +65,6 @@ class GATEncoder(nn.Module):
             output = layer(output)
             if i < len(self.linear_layers) - 1:
                 output = self.activation(output)
-            output = nn.Dropout(self.dropout)(output)
+            output = self.dropout(output)
 
         return global_mean_pool(output, batch.batch)

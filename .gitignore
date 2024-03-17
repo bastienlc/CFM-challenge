@@ -1,6 +1,7 @@
 data
 runs
 __pycache__
+.cache
 *.pyc
 *.h5
 *.csv
