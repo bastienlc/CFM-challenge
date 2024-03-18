@@ -1,6 +1,6 @@
 \documentclass[switch, 11pt]{article}
 
-\usepackage{preprint} 
+\usepackage{preprint}
 \usepackage{amsmath, amsthm, amssymb, amsfonts}
 \usepackage{resizegather}
 \usepackage[numbers,square]{natbib}
@@ -122,21 +122,53 @@
 
     To test the relevance of the features that we derived, we used them to train a random forest classifier on the training set. Then we used feature importance to see if the features we derived were relevant.
 
-    Let's first take a look at some of the interesting features we derived. We need to keep in mind that the goal is to extract an ensemble of features that would be discriminative for different stocks. Also, the following list is not exhaustive, and we will only present the most interesting features.
+    Let's first take a look at some of the interesting features we derived. We need to keep in mind that the goal is to extract an ensemble of features that would be discriminative for different stocks. The following list is not exhaustive, and we will only present the most interesting features.
 
     \paragraph{Bid-ask spread}
-    The bid-ask spread (difference between the best buying and selling price) is a natural feature to consider in a financial context. Since it is a measure of the liquidity of the stock, we expected it to be a particularly good indicator of the stock. We plotted, on figure \ref{fig:spread}, the boxplot of the bid-ask spread for each stock. More precisely, for each stock, we considered all the bid-ask spreads of all the observations of the stock in the training set. Furthermore, we only collected the points where a limit order was placed, updated, deleted or traded. While we can see that the spread does not seem to completely separate the stocks, it is still a good indicator of the stock with a decent variety of boxplot shapes. As we will see in the results section, the bid-ask spread was actually the most important feature in the random forest classification.
+    The bid-ask spread (difference between the best buying and selling price) is a natural feature to consider in a financial context. Since it is a measure of the liquidity of the stock, we expected it to be a particularly good indicator of the stock. We plotted, on figure \ref{fig:spread}, the boxplot of the bid-ask spread for each stock. More precisely, for each stock, we considered all the bid-ask spreads of all the observations of the stock in the training set. Furthermore, we only collected the points where a limit order was placed, updated, deleted or traded. While we can see that the spread does not seem to completely separate the stocks, it is still a good indicator of the stock with a decent variety of boxplot shapes. As we will see in the results section, the bid-ask spread was actually the most important feature in the random forest classification, thereby confirming our intuition.
 
-    \paragraph{Price outliers (number and price value)}
-    An \textit{a priori} good feature we derived was the characteristics of the price outliers. We can see on figure \ref{fig:nb_outliers} representing the percentage of price outliers per number of ticks, that the stocks have relatively different distributions. We plotted on figure \ref{fig:boxplot_outliers} the boxplot of the percentage of price outliers for each stock, over all available observations in the training set. We can see that the stocks do not really separate well. Nevertheless, we get more interesting results when we look at the actual values of the price outliers. We plotted on figures \ref{fig:outliers_bid} and \ref{fig:outliers_ask} the boxplot of the bid and ask price outliers for each stock. For example, we can see that stocks 7 and 20, as well as stocks 5, 8, 15, 17, 19 and 23 distinguish themselves from the others by having a higher percentage of outliers. This type of result is what we are looking for, since it gives additional discriminative information about the stocks.
+    Another takeaway from this plot is that most stocks are fairly liquid, with an average spread of around 0.1, which represents $10$ ticks. Nevertheless, some stock are strikingly more volatile than others, with a spread distribution that can have large variances.
 
     \paragraph{Volume}
-    A very straightforward feature, which is actually given in the data, is the volume of the orders. We plotted on figure \ref{fig:volume} the boxplot of Bid and Ask sizes for each stock. We can see that, as in the case of the bid-ask spread, the stocks separate decently well.
+    A very straightforward feature, which is actually given in the data, is the volume of the orders. We plot on figure \ref{fig:volume} the boxplot of Bid and Ask sizes for each stock. We can see that, as in the case of the bid-ask spread, the stocks separate decently well.
+
+    Volume is also a feature that we consider to be important and relevant, since it is another measure of liquidity.
+
+\end{multicols}
+\begin{figure}
+    % without split
+    \centering
+    \includegraphics[width=\columnwidth]{figures/mean_spread_per_stock_mo.png}
+    \caption{Boxplot of the bid-ask spread for each stock. We only considered the points where a limit order was placed, updated, deleted or traded.}
+    \label{fig:spread}
+\end{figure}
+\begin{multicols}{2}
+
+    \paragraph{Price outliers (number and price value)}
+    An \textit{a priori} good feature we derived was the price outliers. First, we considered the number of price outliers for each stock. More precisely, given a stock, we considered all the corresponding observations in the training set, and counted the number of price outliers over the $100$ events.
+
+    We define a price outlier of order $i$ as an order whose price is $i$ ticks away from the best buying or selling price. An illustration of this definition is given on figure \ref{fig:def_outliers}.
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=\columnwidth]{figures/price_outliers_def.png}
+        \caption{Illustration of the definition of price outliers. In this example, we illustrate the case of a price outlier of order $2$.}
+        \label{fig:def_outliers}
+    \end{figure}
+    While this definition may seem arbitrary since the liquidity and volatility is not the same for all stocks, it is, for our purposes, a fairly sufficient way to set a definition. This is because, the average spread is around $1$ and $10$ ticks for most stocks, and as we can see on figure \ref{fig:nb_outliers}, we already include more than enough outliers for the least liquid stocks (stock 20 for example).
+
+    The second feature we derived was the price value of the outliers. This is done by simply considering, for each stock and corresponding observation, the average price of the outliers over the $100$ events.
+
+    We plot on figure \ref{fig:boxplot_outliers} the boxplot of the number of price outliers for each stock, over all available observations in the training set. We can see that the stocks do not really separate well, and therefore that the number of price outliers does not seem to be a good indicator of the stock. This will be confirmed in the feature importance analysis in the results section.
+
+    On the other hand, we get more interesting results when we look at the value distributions of the price outliers. We plot on figure \ref{fig:boxplot_price_outliers_bid_ask} the boxplot of the bid and ask price outliers for each stock. For example, we can see that stocks 7 and 20, as well as, in a lesser extent, stocks 5, 8, 15, 17, 19 and 23 distinguish themselves from the others by having a higher percentage of outliers. This type of result is what we are looking for, since it gives additional discriminative information about the stocks.
 
     \paragraph{Price outliers (flux)}
-    Similarly, we looked at the flux of the orders that were price outliers. We distinguished $2\times 2$ types of outliers: Bid/Ask and Addition/Deletion. We plotted on figures \ref{fig:flux_bid} and \ref{fig:flux_ask} the corresponding boxplots. Here, we can see that a variety of stocks are clearly distinguishable. A striking example is stock 20, which stands out alone in the bid addition outliers. Therefore, if the test set has a similar distribution, we can expect our model to perform almost perfectly on this stock.
+    Similarly, we looked at the flux of the orders that were price outliers. We considered, for each stock and corresponding observation, the average flux of the price outliers over the $100$ events. We did this analysis on $4$ different subsets of the data: ask addition, ask update, bid update and bid addition.
+    We plot on figures \ref{fig:flux_ask_add}, \ref{fig:flux_ask_update} and \ref{fig:flux_bid_update} the boxplots corresponding to the first three cases (the bid addition outliers are very similar to the ask addition outliers, so we didn't include them).
 
-    \paragraph{Other unconclusive features} Among the other features we looked at, we can mention the trade proportion per stock, the trade price and volume per stock, the bid-ask spread distinguished by venue or the proportion of limit orders. None of these features were particularly discriminative.
+    We can see that a variety of stocks are clearly distinguishable. A striking example is stock 20, which stands out alone in the ask addition outliers of order $100$. Therefore, if the test set has a similar distribution, we can expect our model to perform almost perfectly on this stock.
+
+    \paragraph{Other unconclusive features} Among the other features we looked at, we can mention the trade proportion, price and volume per stock, the bid-ask spread distinguished by venue or the proportion of limit orders. None of these features were particularly discriminative.
 
     \subsection{Preprocessing}
 
@@ -302,11 +334,58 @@
 
 \newpage
 \appendix
-
-\vspace{5mm}
+% \vspace{5mm}
 \begin{center}
     {\Large \bfseries Appendix} \\
 \end{center}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/percentage_outliers_per_stock.png}
+    \caption{Percentage of price outliers per number of ticks.}
+    \label{fig:nb_outliers}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/boxplot_nb_outliers.png}
+    \caption{Boxplot of the number of price outliers for each stock.}
+    \label{fig:boxplot_outliers}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/boxplot_price_outliers_BID_ASK.png}
+    \caption{Boxplot of the bid and ask price outliers for each stock.}
+    \label{fig:boxplot_price_outliers_bid_ask}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/boxplot_volume_per_stock.png}
+    \caption{Boxplot of the bid and ask volume for each stock.}
+    \label{fig:volume}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/boxplot_flux_outliers_ASK.png}
+    \caption{Boxplot of the flux of the ask price outliers for each stock. Only the ask addition outliers are considered.}
+    \label{fig:flux_ask_add}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/boxplot_flux_outliers_ASK_UPDATE.png}
+    \caption{Boxplot of the flux of the ask price outliers for each stock. Only the ask update outliers are considered.}
+    \label{fig:flux_ask_update}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/boxplot_flux_outliers_BID_UPDATE.png}
+    \caption{Boxplot of the flux of the bid price outliers for each stock. Only the bid addition updates are considered.}
+    \label{fig:flux_bid_update}
+\end{figure}
 
 
 \end{document}
