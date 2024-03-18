@@ -4,10 +4,10 @@ EPSILON = 1e-5
 
 
 def compute_sequence_features(rows):
-    result = np.zeros((84))
+    result = np.zeros((89))
     offset = 0
 
-    for k in range(10):
+    for k in range(11):
         result[offset] = np.mean(rows[:, k])
         result[offset + 1] = np.min(rows[:, k])
         result[offset + 2] = np.max(rows[:, k])

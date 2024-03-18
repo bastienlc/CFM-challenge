@@ -172,6 +172,38 @@
 
     \subsection{Preprocessing}
 
+    Building on the previous section, we followed some pre-processing steps before training some models. Depending on the model, we used different pre-processing steps. We will try to describe the most important ones here.
+
+    \subsubsection{Graph models}
+
+    For the graph models, we used the following pre-processing steps:
+    \begin{enumerate}
+        \item Outliers removal : we removed all observations from the training set for which at least one event had at least one value at more than $7$ standard deviations from the mean. We only considered the price, bid, ask, bid size, ask size and flux features for this operation. This removed $5808$ observations which is around $3.6\%$ of the training set.
+        \item Log transformation : we applied a log transformation to the flux, bid size and ask size. This specific transformation preserves the sign of the values :
+              $$\tilde{x}= \text{sign}(x)\log(1+|x|)$$
+        \item Min-max scaling : we further normalize the bid size and ask size features by applying a min-max scaling to the log-transformed values. The min and max are computed together on both features to preserve their relative scale.
+    \end{enumerate}
+
+    While these pre-processing steps are arbitrary, they gave much better results than some standard pre-processing steps such as standard scaling or min-max scaling on the original features.
+
+    \subsubsection{Simple features}
+
+    One set of features that we used for the statistical models and that we can refer to as "simple features" is the following:
+    \begin{enumerate}
+        \item For each feature present for each event (11 features), compute min, max, mean, median, and standard deviation over the 100 events.
+        \item Do the same for the bid-ask spread, the indicator of whether the price is the best bid or ask, and the sum of bid size and ask size.
+        \item Add the following features computed over the 100 events:
+              \begin{itemize}
+                  \item The number of unique order ids.
+                  \item The number of orders for each venue.
+                  \item The number of each action (new, delete, update).
+                  \item The number orders on each side (buy, sell).
+                  \item The number of trades.
+                  \item The sum of the flux.
+              \end{itemize}
+    \end{enumerate}
+    Once again these features are arbitrary, but they are a good statistical summary of the data, allowing to process a sequence of orders as a single data point in $\R^{89}$.
+
     \subsection{Graph construction}
 
     To deal with the temporal and categorical aspects of the data, one idea is to represent the data as a graph that better represents the relationships between the different events. After a bit of trial and error, we made the following arbitrary choices to construct a graph representing a sample :
@@ -309,6 +341,13 @@
 
     We used a scheduler to automatically decrease the learning rate. The scheduler decreased the learning rate by a factor of $0.95$ every epoch, which yielded a learning rate of around $1\times10^{-3}$ after $30$ epochs which is a typical number of epochs for our models.
 
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=\columnwidth]{figures/learning_rate.png}
+        \caption{Learning rate schedule.}
+        \label{fig:learning_rate}
+    \end{figure}
+
     We generally stopped the training quickly when the accuracy on the validation set stopped increasing significantly. This is motivated by the change of distribution between the training and the test set, which means that we do not want to overfit the training set.
 
     \subsection{Other unsuccessful experiments}
@@ -319,6 +358,35 @@
         \item Starting with a trained model, we extracted the test samples for which it was the most confident, and submitted them to the leaderboard (with the rest left at random). We could infer that we had around $80\%$ accuracy on these samples. Thus we tried fine-tuning a model on these samples, but it did not improve the accuracy on the test set.
     \end{itemize}
 
+    \subsection{Monitoring metrics}
+
+    For intellegible training and comparison of deep learning models, we monitored the following metrics at each epoch :
+    \begin{itemize}
+        \item Training accuracy (figure \ref{fig:train_accuracy})
+        \item Validation accuracy (figure \ref{fig:val_accuracy})
+        \item Training loss (figure \ref{fig:train_loss})
+        \item Validation loss (figure \ref{fig:val_loss})
+        \item MCC loss on the test set (figure \ref{fig:mcc_loss})
+    \end{itemize}
+
+    These metrics allowed us to quickly stop the training when the model stopped improving, and to compare the different models. As in most classification tasks, the validation accuracy was the most important metric. Considering we used the same cross-entropy loss for all the models, the loss function can provide additional insight into the confidence of the model in the predictions.
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=\columnwidth]{figures/train_accuracy.png}
+        \caption{Training accuracy}
+        \label{fig:train_accuracy}
+    \end{figure}
+
+    Figures \ref{fig:train_accuracy} and \ref{fig:val_accuracy} provide multiple insights. First, we can see that the models are not overfitting the training set, as the training and validation accuracy are extremely close. Second, the training procedure is stable, and the models converge quickly, at least for the GAT models. The other models (LSTM, Graph transformer, PNA, PDN, MLP) might benefit from a different optimizer, but we did not have the time to experiment with this. Finally, we note that the GAT models largely outperform the other models, which is why we used them as the main models in our ensemble. The two GAT models presented are the worst one and the best one from the ensemble.
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=\columnwidth]{figures/val_accuracy.png}
+        \caption{Validation accuracy}
+        \label{fig:val_accuracy}
+    \end{figure}
+
     \section{Results}
     \subsection{Statistical models}
     \paragraph{Random Forest Classifier}
@@ -327,6 +395,9 @@
     We present in this section the results of $2$ random forest classifiers that we trained. The first model was trained on the Bid-Ask spread, the Bid and Ask volume, the number of price outliers, the price outliers, the flux of the price outliers, and the proportion of each venues on which the orders were placed. The second model was only trained on a subset of the features of the first model, which were the Bid-Ask spread, the Bid and Ask volume and the venue proportion.
 
     We obtained a very important result that framed our approach for the rest of the challenge. We found that the first model had a $49\%$ accuracy on the validation set, while the second model had a $28\%$ accuracy. However, both models performed very similarly on the test set, with an accuracy of respectively $22\%$ and $20\%$. This result is very important because it gives us a clear indication that the "outlier" features, while being very discriminative on the training set, are almost irrelevant on the test set. At this point, we had $2$ choices: either we could eliminate the outlier features from our ensemble, or we could try to find a model that would be able to detect how the "outlier" features distribution changed in the test set.
+
+    \section{Conclusion}
+
     \newpage
     \bibliography{bibliography}
 
@@ -385,6 +456,30 @@
     \includegraphics[width=\columnwidth]{figures/boxplot_flux_outliers_BID_UPDATE.png}
     \caption{Boxplot of the flux of the bid price outliers for each stock. Only the bid addition updates are considered.}
     \label{fig:flux_bid_update}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.49\columnwidth}
+        \centering
+        \includegraphics[width=0.99\columnwidth]{figures/train_loss.png}
+        \caption{Training loss}
+        \label{fig:train_loss}
+    \end{subfigure}
+    \begin{subfigure}{0.49\columnwidth}
+        \centering
+        \includegraphics[width=0.99\columnwidth]{figures/val_loss.png}
+        \caption{Validation loss}
+        \label{fig:val_loss}
+    \end{subfigure}
+    \caption{Training and validation loss}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\columnwidth]{figures/mcc_loss.png}
+    \caption{MCC loss on the test set}
+    \label{fig:mcc_loss}
 \end{figure}
 
 

@@ -9,7 +9,7 @@ from sklearn.preprocessing import LabelEncoder
 def load_data(
     dummy=False, shuffle=True, seed=42, normalize=True, filter=True, resize=False
 ):
-    """features : {0: "venue", 1: "order_id", 2: "action", 3: "side", 4: "price", 5: "bid", 6: "ask", 7: "bid_size", 9: "ask_size", 9: "trade", 10: "flux"}"""
+    """features : {0: "venue", 1: "order_id", 2: "action", 3: "side", 4: "price", 5: "bid", 6: "ask", 7: "bid_size", 8: "ask_size", 9: "trade", 10: "flux"}"""
     np.random.seed(seed)
     # LOAD
     if dummy:
