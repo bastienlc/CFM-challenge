@@ -224,6 +224,8 @@
     \end{itemize}
     We also add the venue and a time feature to the nodes, otherwise the model would not be able to distinguish between the different venues, and would not know in which direction the time flows.
 
+        [ADD A FIGURE WITH A GRAPH AND THE CORRESPONDING ORDER BOOK]
+
     \section{Method}
 
     In this section, we describe the different models we used. We experimented with three main types of models: recurrent neural networks which are well suited for sequential data, graph neural networks which exploit the graph representation of the data, and statistical models that exploit features extracted from the sequence of events. From the start we knew that our final prediction would be an ensemble of models, so we explored different types of models to maximize the diversity of the ensemble. Indeed the diversity should improve the robustness of the predictions, especially given the change of distribution between the training and the test set.
@@ -283,7 +285,6 @@
         \item Logistic Regression
         \item K-Nearest Neighbors
         \item Ridge Classifier
-        \item \dots
     \end{itemize}
 
     \subsection{Franck Zibi's model}
@@ -296,6 +297,8 @@
     \end{enumerate}
 
     We can then simply predict the class of a sample by adding the output of the random forest classifier to the output of the stacked models, and taking the class with the highest probability.
+
+    \subsection{Ensemble}
 
     \section{Training}
 
@@ -388,6 +391,49 @@
     \end{figure}
 
     \section{Results}
+    We present our main accuracy results in table \ref{tab:results}. The very first thing we note is the low accuracies on the test set. As we mentioned earlier, the distribution of the test set is very different from the training set, and this is reflected in the low accuracies. This leads to vastly different models on the validation set getting similar accuracies on the test set.
+
+    The GAT model gives the best results with validation accuracies greater than $70\%$. However it also fails to generalize to the test set. Note that the Generalized GNN model has good results but its training was not stable, so we would not trust it as much as the GAT models. The models based on features (Franck Zibi's and the MLP one) have some of the worst results, which is disappointing since we expected them to be more robust to the change of distribution.
+
+    Finally the ensemble of all the models gives us the best results with a test accuracy of $40\%$. We expected the ensemble to give us the best results, but we were surprised by the low accuracy, as it only gives us a $5\%$ improvement over the best single model.
+
+    \begin{table}[H]
+        \begin{center}
+            \resizebox{\columnwidth}{!}{
+                \begin{tabular}{|c|c|c|c|}
+                    \hline
+                    \textbf{Model description} & \textbf{Training acc.} & \textbf{Validation acc.} & \textbf{Test acc.} \\
+                    \hline
+                    PDN                        & 0.42                   & 0.43                     & 0.23               \\
+                    \hline
+                    MLP                        & 0.42                   & 0.41                     & 0.24               \\
+                    \hline
+                    Franck Zibi's model        & 0.95                   & 0.42                     & 0.25               \\
+                    \hline
+                    Graph transformer          & 0.44                   & 0.43                     & 0.29               \\
+                    \hline
+                    General GNN                & 0.43                   & 0.42                     & 0.30               \\
+                    \hline
+                    PNA                        & 0.47                   & 0.45                     & 0.30               \\
+                    \hline
+                    LSTM                       & 0.57                   & 0.44                     & 0.30               \\
+                    \hline
+                    GAT (50 epochs)            & 0.75                   & 0.71                     & 0.33               \\
+                    \hline
+                    GAT (20 epochs)            & 0.72                   & 0.68                     & 0.34               \\
+                    \hline
+                    Generalized GNN            & 0.73                   & 0.71                     & 0.35               \\
+                    \hline
+                    Final ensemble             &                        &                          & 0.40               \\
+                    \hline
+                \end{tabular}
+            }
+        \end{center}
+        \caption{Main accuracy results}
+        \label{tab:results}
+    \end{table}
+
+
     \subsection{Statistical models}
     \paragraph{Random Forest Classifier}
     Throughout our experiments, we found the random forest classifier handy for feature selection, as well as for training a model purely based on hand-crafted features.
@@ -395,6 +441,8 @@
     We present in this section the results of $2$ random forest classifiers that we trained. The first model was trained on the Bid-Ask spread, the Bid and Ask volume, the number of price outliers, the price outliers, the flux of the price outliers, and the proportion of each venues on which the orders were placed. The second model was only trained on a subset of the features of the first model, which were the Bid-Ask spread, the Bid and Ask volume and the venue proportion.
 
     We obtained a very important result that framed our approach for the rest of the challenge. We found that the first model had a $49\%$ accuracy on the validation set, while the second model had a $28\%$ accuracy. However, both models performed very similarly on the test set, with an accuracy of respectively $22\%$ and $20\%$. This result is very important because it gives us a clear indication that the "outlier" features, while being very discriminative on the training set, are almost irrelevant on the test set. At this point, we had $2$ choices: either we could eliminate the outlier features from our ensemble, or we could try to find a model that would be able to detect how the "outlier" features distribution changed in the test set.
+
+    \subsection{Predictions analysis}
 
     \section{Conclusion}
 
