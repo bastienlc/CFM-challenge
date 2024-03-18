@@ -457,9 +457,11 @@
     \paragraph{Random Forest Classifier}
     Throughout our experiments, we found the random forest classifier handy for feature selection, as well as for training a model purely based on hand-crafted features.
 
-    We present in this section the results of $2$ random forest classifiers that we trained. The first model was trained on the Bid-Ask spread, the Bid and Ask volume, the number of price outliers, the price outliers, the flux of the price outliers, and the proportion of each venues on which the orders were placed. The second model was only trained on a subset of the features of the first model, which were the Bid-Ask spread, the Bid and Ask volume and the venue proportion.
+    We present in this section the results of $2$ random forest classifiers that we trained. The first model was trained on the Bid-Ask spread, the Bid and Ask volume, the number of price outliers, the price outliers, the flux of the price outliers, and the proportion of each venues on which the orders were placed. The second model was only trained on a subset of the features of the first model, which were the Bid-Ask spread, the Bid and Ask volume and the venue proportions.
 
-    We obtained a very important result that framed our approach for the rest of the challenge. We found that the first model had a $49\%$ accuracy on the validation set, while the second model had a $28\%$ accuracy. However, both models performed very similarly on the test set, with an accuracy of respectively $22\%$ and $20\%$. This result is very important because it gives us a clear indication that the "outlier" features, while being very discriminative on the training set, are almost irrelevant on the test set. At this point, we had $2$ choices: either we could eliminate the outlier features from our ensemble, or we could try to find a model that would be able to detect how the "outlier" features distribution changed in the test set.
+    First, we take a look at the feature importance of the first model in figure \ref{fig:feature_importance}. We can see that the bid-ask spread is by far the most important feature, which confirms our initial intuition. In second position, we have the bid and ask volume. The price outliers in terms of number, price value and flux (addition only) form a third group of important features. The outlier features in terms of update are the least important features, with importances of $0 \%$.
+
+    Second, we present a very interesting result that partly framed our approach for the challenge. We found that the first model had a $49\%$ accuracy on the validation set, while the second model had a $28\%$ accuracy. However, both models performed very similarly on the test set, with an accuracy of respectively $22\%$ and $20\%$. This result is very important because it gives us a clear indication that the "outlier" features, while being very discriminative on the training set, are almost irrelevant on the test set. At this point, we had $2$ choices: either we could eliminate the outlier features from our ensemble, or we could try to find a model that would be able to detect how the "outlier" features distribution changed in the test set.
 
     \subsection{Predictions analysis}
 
@@ -580,5 +582,11 @@
     \label{fig:full_calibration}
 \end{figure}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\columnwidth]{figures/feature_importance.png}
+    \caption{Feature importance of the random forest classifier.}
+    \label{fig:feature_importance}
+\end{figure}
 
 \end{document}
