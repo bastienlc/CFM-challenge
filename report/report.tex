@@ -390,6 +390,8 @@
         \label{fig:val_accuracy}
     \end{figure}
 
+    \subsection{Model calibration}
+
     \section{Results}
     We present our main accuracy results in table \ref{tab:results}. The very first thing we note is the low accuracies on the test set. As we mentioned earlier, the distribution of the test set is very different from the training set, and this is reflected in the low accuracies. This leads to vastly different models on the validation set getting similar accuracies on the test set.
 
@@ -443,6 +445,30 @@
     We obtained a very important result that framed our approach for the rest of the challenge. We found that the first model had a $49\%$ accuracy on the validation set, while the second model had a $28\%$ accuracy. However, both models performed very similarly on the test set, with an accuracy of respectively $22\%$ and $20\%$. This result is very important because it gives us a clear indication that the "outlier" features, while being very discriminative on the training set, are almost irrelevant on the test set. At this point, we had $2$ choices: either we could eliminate the outlier features from our ensemble, or we could try to find a model that would be able to detect how the "outlier" features distribution changed in the test set.
 
     \subsection{Predictions analysis}
+
+    After failing to improve the accuracy of our models on the test set, we looked into the predictions of the models to try to understand why they were so bad. We quickly had the idea to add noise to the input samples to see how the models would react. Thus we selected some observations for which we ran the predictions $1000$ times with a white gaussian noise of mean $0$ and standard deviation $0.05$ added to the price, bid-ask spread, bid size, ask size and flux. We then plotted the boxplot of the predicted probabilities for each class. We present the results for the GAT model in figure \ref{fig:predictions_2}, \ref{fig:predictions_1} and \ref{fig:predictions_3}, for some selected observations from the validation set. For each figure, we show the true class, the predicted class, the predicted probabilities without perturbations, and the boxplot of the predicted probabilities for each class with the perturbations.
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=\columnwidth]{figures/predictions_2.png}
+        \caption{Boxplot of the predicted probabilities for each class.}
+        \label{fig:predictions_2}
+    \end{figure}
+    The first example in figure \ref{fig:predictions_2} is the ideal case, in which the model was initially entirely confident in its prediction, and the perturbations did not change this confidence.
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=\columnwidth]{figures/predictions_1.png}
+        \caption{Boxplot of the predicted probabilities for each class.}
+        \label{fig:predictions_1}
+    \end{figure}
+    The second example in figure \ref{fig:predictions_1} is the one that motivated us to look into the predictions of the models. We can see that the model was initially very confident in its prediction of the erroneous class 15, but a lot of the perturbated predictions are now in favor of the true class 7. In some of these cases it would be worth it to trust the perturbated predictions more than the initial prediction.
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=\columnwidth]{figures/predictions_3.png}
+        \caption{Boxplot of the predicted probabilities for each class.}
+        \label{fig:predictions_3}
+    \end{figure}
+    While our two first examples were cherry-picked, in many cases the model would be very uncertain in its predictions, and the perturbations would still be very uncertain. This is the case in figure \ref{fig:predictions_3}. Because the samples we tried were not overwhelmingly interesting cases, we did not explore this further. However note that the results on the test set were very similar to the results on the validation set, and this approache seems promising to improve the accuracy of the models.
 
     \section{Conclusion}
 
