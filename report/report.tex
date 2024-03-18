@@ -68,9 +68,9 @@
 \begin{multicols}{2}
     \section{Introduction}
 
-    The goal of this challenge is to predict the stock corresponding to a given order book. Each sample is a chronological sequence of 100 events of orders for a given stock. To make this task more challenging, a lot of the data is missing, and some properties have been normalized.
+    The goal of the challenge is to predict the stock corresponding to a snapshot of a given order book. Each sample is a chronological sequence of 100 events of orders, posted or traded, for a given stock. To make this task challenging, a lot of the usual data features have been removed by the organizers, and some particularly revealing properties, like price or best bid and ask, have been hidden by centering the data around the first event of each sample.
 
-    The first part of this challenge was devoluted to correctly dealing with the temporal and categorical aspects of the data. Then we focused on dealing with the change of distribution of the data between the training and the test set.
+    The first part of this challenge was devoted to correctly dealing with the temporal and categorical aspects of the data. Then we focused on dealing with the change of distribution of the data between the training and the test set.
 
     In this report, we describe the data, the different models we used, the training procedure as well as the results we obtained.
 
