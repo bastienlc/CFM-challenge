@@ -392,6 +392,23 @@
 
     \subsection{Model calibration}
 
+    Calibration is a crucial step in the development of a classification model. It involves adjusting the output of a model to ensure that the predicted probabilities are as close as possible to the true probabilities. In other words, calibration is about making the model's confidence in its predictions accurate.
+
+    Isotonic calibration, also known as isotonic regression, is a non-parametric calibration technique. It works by fitting a piecewise constant non-decreasing function to the data, such that the predicted probabilities are as close as possible to the true probabilities.
+
+    We present in figure \ref{fig:calibration} an example of the calibration of the first class of the GAT model on the validation data. The full calibration can be found in annnex \ref{fig:full_calibration}.
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=\columnwidth]{figures/small_calibration.png}
+        \caption{Calibration of the first class of the GAT model. The transparent lines represent the initial values, and the solid lines represent the calibrated values. The dashed line represents the ideal calibration. We reach an almost perfect calibration on the validation data. Note that the test data was represented using predicted class as true labels, which is why the shape of its calibration curve is meaningless. The interest of showing it is to see if the calibration affects the test predictions.}
+        \label{fig:calibration}
+    \end{figure}
+
+    The calibration process is typically carried out on the validation data, rather than the training data. This is because the model has already been fitted to the training data, and calibrating on this data could lead to a biased result. The choice of isotonic regression over other calibration techniques is motivated by its simplicity and effectiveness, while other techniques such as Platt scaling or beta calibration delivered similar results.
+
+    In the end we did not have enough time to use calibration, but we believe that calibrating all the models before ensembling them would be a good idea.
+
     \section{Results}
     We present our main accuracy results in table \ref{tab:results}. The very first thing we note is the low accuracies on the test set. As we mentioned earlier, the distribution of the test set is very different from the training set, and this is reflected in the low accuracies. This leads to vastly different models on the validation set getting similar accuracies on the test set.
 
@@ -554,6 +571,13 @@
     \includegraphics[width=0.5\columnwidth]{figures/mcc_loss.png}
     \caption{MCC loss on the test set}
     \label{fig:mcc_loss}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/calibration.png}
+    \caption{Calibration of the GAT model.}
+    \label{fig:full_calibration}
 \end{figure}
 
 
