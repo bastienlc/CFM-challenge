@@ -30,6 +30,7 @@
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{titlesec}
+\usepackage{sidecap}
 \usepackage{authblk}
 \usepackage{graphics}
 \usepackage[font=small,labelfont=bf]{caption}
@@ -173,9 +174,9 @@
 
     Building on the previous section, we followed some pre-processing steps before training some models. Depending on the model, we used different pre-processing steps. We describe the most important ones here.
 
-    \subsection{Graph models}
+    \subsection{Data cleaning, normalization and scaling}
 
-    For the graph models, we used the following pre-processing steps:
+    For our models, we used the following pre-processing steps:
     \begin{enumerate}
         \item \textbf{Outliers removal} : we removed all observations from the training set for which at least one event had at least one value at more than $7$ standard deviations from the mean. We only considered the price, bid, ask, bid size, ask size and flux features for this operation. This removed $5808$ observations which is around $3.6\%$ of the training set.
         \item \textbf{Log transformation} : we applied a log transformation to the flux, bid size and ask size. This specific transformation preserves the sign of the values :
@@ -183,9 +184,18 @@
         \item \textbf{Min-max scaling} : we further normalize the bid size and ask size features by applying a min-max scaling to the log-transformed values. The min and max are computed together on both features to preserve their relative scale.
     \end{enumerate}
 
+\end{multicols}
+\begin{SCfigure}
+    \centering
+    \includegraphics[width=0.7\columnwidth]{figures/graph_structure.png}
+    \caption{Illustration of the graph structure. This is an abstract representation of the graph, with arbitrary nodes and edges, as well as numbers of venues. We see that the graph is undirected, and that each venue corresponds to a connex component. We also see that there are both node and edge features. We distinguish $2$ types of edges, one temporally connecting consecutive events on the same venue (full line), and the other connecting events corresponding to the same participant, and hence order id (dashed line).}
+    \label{fig:graph_structure}
+\end{SCfigure}
+\begin{multicols}{2}
+
     While these pre-processing steps are arbitrary, they gave much better results than some standard pre-processing steps such as standard scaling or min-max scaling on the original features.
 
-    \subsection{Simple features for statistical models}
+    \subsection{Features for statistical models}
 
     One set of features that we used for the statistical models and that we can refer to as "simple features" is the following:
     \begin{enumerate}
@@ -222,8 +232,6 @@
         \item Edge features: action, side, trade.
     \end{itemize}
     We also add the venue and a time feature to the nodes, so that the graph encodes all the information of the original data.
-
-        [ADD A FIGURE WITH A GRAPH AND THE CORRESPONDING ORDER BOOK]
 
     \section{Method}
 
@@ -420,6 +428,18 @@
     In the end we did not have enough time to use calibration, but we believe that calibrating all the models before ensembling them would be a good idea.
 
     \section{Results}
+
+    \subsection{Random Forest Classifier}
+    Throughout our experiments, we found the random forest classifier handy for feature selection, as well as for training a model purely based on hand-crafted features.
+
+    We present in this section the results of $2$ random forest classifiers that we trained. The first model was trained on the Bid-Ask spread, the Bid and Ask volume, the number of price outliers, the price outliers, the flux of the price outliers, and the proportion of each venues on which the orders were placed. The second model was only trained on a subset of the features of the first model, which were the Bid-Ask spread, the Bid and Ask volume and the venue proportions.
+
+    First, we take a look at the feature importance of the first model in figure \ref{fig:feature_importance}. We can see that the bid-ask spread is by far the most important feature, which confirms our initial intuition. In second position, we have the bid and ask volume. The price outliers in terms of number, price value and flux (addition only) form a third group of important features. The outlier features in terms of update are the least important features, with importances of $0 \%$.
+
+    Second, we present a very interesting result that partly framed our approach for the challenge. We found that the first model had a $49\%$ accuracy on the validation set, while the second model had a $28\%$ accuracy. However, both models performed very similarly on the test set, with an accuracy of respectively $22\%$ and $20\%$. This result is very important because it gives us a clear indication that the "outlier" features, while being very discriminative on the training set, are almost irrelevant on the test set. At this point, we had $2$ choices: either we could eliminate the outlier features from our ensemble, or we could try to find a model that would be able to detect how the "outlier" features distribution changed in the test set.
+
+    \subsection{Ensemble of all the models}
+
     We present our main accuracy results in table \ref{tab:results}. The very first thing we note is the low accuracies on the test set. As we mentioned earlier, the distribution of the test set is very different from the training set, and this is reflected in the low accuracies. This leads to vastly different models on the validation set getting similar accuracies on the test set.
 
     The GAT model gives the best results with validation accuracies greater than $70\%$. However it also fails to generalize to the test set. Note that the Generalized GNN model has good results but its training was not stable, so we would not trust it as much as the GAT models. The models based on features (Franck Zibi's and the MLP one) have some of the worst results, which is disappointing since we expected them to be more robust to the change of distribution.
@@ -463,15 +483,6 @@
     \end{table}
 
 
-    \subsection{Random Forest Classifier}
-    Throughout our experiments, we found the random forest classifier handy for feature selection, as well as for training a model purely based on hand-crafted features.
-
-    We present in this section the results of $2$ random forest classifiers that we trained. The first model was trained on the Bid-Ask spread, the Bid and Ask volume, the number of price outliers, the price outliers, the flux of the price outliers, and the proportion of each venues on which the orders were placed. The second model was only trained on a subset of the features of the first model, which were the Bid-Ask spread, the Bid and Ask volume and the venue proportions.
-
-    First, we take a look at the feature importance of the first model in figure \ref{fig:feature_importance}. We can see that the bid-ask spread is by far the most important feature, which confirms our initial intuition. In second position, we have the bid and ask volume. The price outliers in terms of number, price value and flux (addition only) form a third group of important features. The outlier features in terms of update are the least important features, with importances of $0 \%$.
-
-    Second, we present a very interesting result that partly framed our approach for the challenge. We found that the first model had a $49\%$ accuracy on the validation set, while the second model had a $28\%$ accuracy. However, both models performed very similarly on the test set, with an accuracy of respectively $22\%$ and $20\%$. This result is very important because it gives us a clear indication that the "outlier" features, while being very discriminative on the training set, are almost irrelevant on the test set. At this point, we had $2$ choices: either we could eliminate the outlier features from our ensemble, or we could try to find a model that would be able to detect how the "outlier" features distribution changed in the test set.
-
     \subsection{Predictions analysis}
 
     After failing to improve the accuracy of our models on the test set, we looked into the predictions of the models to try to understand why they were so bad. We quickly had the idea to add noise to the input samples to see how the models would react. Thus we selected some observations for which we ran the predictions $1000$ times with a white gaussian noise of mean $0$ and standard deviation $0.05$ added to the price, bid-ask spread, bid size, ask size and flux. We then plotted the boxplot of the predicted probabilities for each class. We present the results for the GAT model in figure \ref{fig:predictions_2}, \ref{fig:predictions_1} and \ref{fig:predictions_3}, for some selected observations from the validation set. For each figure, we show the true class, the predicted class, the predicted probabilities without perturbations, and the boxplot of the predicted probabilities for each class with the perturbations.
@@ -499,6 +510,9 @@
     While our two first examples were cherry-picked, in many cases the model would be very uncertain in its predictions, and the perturbations would still be very uncertain. This is the case in figure \ref{fig:predictions_3}. Because the samples we tried were not overwhelmingly interesting cases, we did not explore this further. However note that the results on the test set were very similar to the results on the validation set, and this approache seems promising to improve the accuracy of the models.
 
     \section{Conclusion}
+    Throughout this challenge, we performed a thorough analysis of the data with multiple visualizations and statistical tests. This allowed us to get a better understanding of the challenge and to engineer some features that were very discriminative on the training set. We also used some \textit{a priori} knowledge of financial markets to direct our process. In a second step, we trained a wide variety of models to diversify our ensemble. We used recurrent neural networks, graph neural networks, statistical models and implemented a model inspired by the winning solution of last year's challenge, Franck Zibi's model. We also experimented with different loss functions to make the models more robust to the change of distribution between the training and the test set. Finally, we monitored the training of the models with multiple metrics, and we looked into the predictions of the models to try to understand why they were so bad.
+
+    Overall, while we managed to achieve a $40\%$ accuracy on the test set, we are not satisfied with the results. We believe that the main reason for the low accuracy is the change of distribution between the training and the test set. Our main theory is that the "outlier" features that were very discriminative on the training set were almost irrelevant on the test set. An interesting approach, that we only slightly explored, would be to train a model free of all the "outlier" features, but on a granular level (i.e. by deleting events and not whole samples).
 
     \newpage
     \bibliography{bibliography}
