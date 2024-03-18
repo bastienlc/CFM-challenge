@@ -62,9 +62,6 @@
 
 \maketitle
 
-\begin{contribstatement}
-\end{contribstatement}
-
 \begin{multicols}{2}
     \section{Introduction}
 
@@ -219,10 +216,10 @@
 
     The features that are not encoded in the structure of the graph can be placed on the nodes and the edges.
     \begin{itemize}
-        \item Node features: price, bid, ask, bid size, ask size, flux.
+        \item Node features: price, bid-ask spread, bid size, ask size, flux.
         \item Edge features: action, side, trade.
     \end{itemize}
-    We also add the venue and a time feature to the nodes, otherwise the model would not be able to distinguish between the different venues, and would not know in which direction the time flows.
+    We also add the venue and a time feature to the nodes, so that the graph encodes all the information of the original data.
 
         [ADD A FIGURE WITH A GRAPH AND THE CORRESPONDING ORDER BOOK]
 
@@ -268,8 +265,8 @@
     We started out with GAT models because we already had some experience with them, and they were very effective. However, we also trained other graph models to diversify our ensemble (as long as they supported edge features in the graph). Here is an exhaustive list of models that gave us acceptable results and were added to the ensemble (in no particular order) :
     \begin{itemize}
         \item Generalized GNN \cite{li-2020}
-        \item Pathfinder Discovery Network \cite{rozemberczki-2021}
-        \item Principal Neighbourhood Aggregation \cite{corso-2020}
+        \item Pathfinder Discovery Network (PDN) \cite{rozemberczki-2021}
+        \item Principal Neighbourhood Aggregation (PNA) \cite{corso-2020}
         \item Graph transformer \cite{shi-2020}
         \item General GNN \cite{you-2020}
     \end{itemize}
@@ -299,6 +296,17 @@
     We can then simply predict the class of a sample by adding the output of the random forest classifier to the output of the stacked models, and taking the class with the highest probability.
 
     \subsection{Ensemble}
+
+    We used a simple ensemble of all the models to make our final prediction. We simply averaged the predicted probabilities of all the models and took the class with the highest probability. We weighted the importance of each model based on our intuitions, the validation accuracies and the test accuracies. We also wanted to preserve the diversity of the ensemble, so we did not give too much importance to the best models.
+
+    In fine the following models were used in the ensemble :
+    \begin{itemize}
+        \item Two random forest classifiers trained on the simple features.
+        \item Franck Zibi's model trained on the simple features.
+        \item An MLP trained on the simple features.
+        \item A dozen of GAT models trained on the graph representation of the data.
+        \item One Generalized GNN, one PDN, one PNA, one Graph transformer and one General GNN.
+    \end{itemize}
 
     \section{Training}
 
