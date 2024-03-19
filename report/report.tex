@@ -66,7 +66,7 @@
 \begin{multicols}{2}
     \section{Introduction}
 
-    The goal of the challenge is to predict the stock corresponding to a snapshot of a given order book. Each sample is a chronological sequence of 100 events of orders, posted or traded, for a given stock. To make this task challenging, a lot of the usual data features have been removed by the organizers, and some particularly revealing properties, like price or best bid and ask, have been hidden by centering the data around the first event of each sample.
+    The goal of this challenge is to predict the stock corresponding to a snapshot of a given order book. Each sample is a chronological sequence of 100 events of orders, posted or traded, for a given stock. To make this task challenging, a lot of the usual data features have been removed by the organizers, and some particularly revealing properties, like price or best bid and ask, have been hidden by centering the data around the first event of each sample.
 
     The first part of this challenge was devoted to correctly dealing with the temporal and categorical aspects of the data. Then we focused on dealing with the change of distribution of the data between the training and the test set.
 
@@ -76,7 +76,8 @@
 
     Each sample in the dataset is constituted of 100 events of orders for a given stock. There are 24 different stocks which are equally distributed in the training, validation, and test sets. There are 160800 samples in the training set and 80600 samples in the test set.
 
-    % table describing the data
+    Each event is described by 11 features, as described in Table \ref{tab:data}. There are 4 categorical features, 5 continuous features, one integer feature (flux) and the last integer feature (order id) also has some categorical properties as it links the different events of the same order.
+
     \begin{table}[H]
         \begin{center}
             \resizebox{\columnwidth}{!}{
@@ -113,9 +114,11 @@
         \label{tab:data}
     \end{table}
 
-    Each event is described by 11 features, as described in Table \ref{tab:data}. There are 4 categorical features, 5 continuous features, one integer feature (flux) and the last integer feature (order id) also has some categorical properties as it links the different events of the same order.
+    \vspace{-0.5cm}
 
-    As a first step, we visualized some observations of the data to get a better understanding of the different features. We computed significant statistics for each feature, and we also visualized the distribution of the different features on the training and test sets. From this first step we were already able to see some major differences between the training and test sets, which later proved to be a major challenge.
+    As a first step, we visualized some samples of the data to get a better understanding of the different features. We computed significant statistics for each feature, and we also visualized the distribution of the different features on the training and test sets.
+
+    From this first step we were already able to see some major differences between the training and test sets, which later proved to be a major challenge. As an enticing example, we can mention that ask values in the training set are more than $281$ times more likely to be inferior to $-0.1$ compared to the test set ($63877$ events in the training set, $115$ events in the test set).
 
     \subsection{Feature engineering}
     To get a better understanding of the data, we performed an in-depth series of visualizations. The idea was to see if some features -- original or derived -- were sufficient to differentiate between some stocks. To do so, we made use of different types of statistical plots (boxplots, histograms...) where we hoped, at each step, to see if one or several stocks were clearly identifiable.
@@ -125,14 +128,9 @@
     Let's first take a look at some of the interesting features we derived. We need to keep in mind that the goal is to extract an ensemble of features that would be discriminative for different stocks. The following list is not exhaustive, and we will only present the most interesting features.
 
     \paragraph{Bid-ask spread}
-    The bid-ask spread (difference between the best buying and selling price) is a natural feature to consider in a financial context. Since it is a measure of the liquidity of the stock, we expected it to be a particularly good indicator of the stock. We plotted, on figure \ref{fig:spread}, the boxplot of the bid-ask spread for each stock. More precisely, for each stock, we considered all the bid-ask spreads of all the observations of the stock in the training set. Furthermore, we only collected the points where a limit order was placed, updated, deleted or traded. While we can see that the spread does not seem to completely separate the stocks, it is still a good indicator of the stock with a decent variety of boxplot shapes. As we will see in the results section, the bid-ask spread was actually the most important feature in the random forest classification, thereby confirming our intuition.
+    The bid-ask spread (difference between the best buying and selling price) is a natural feature to consider in a financial context. Since it is a measure of the liquidity, we expected it to be a particularly good indicator of the stock. We plotted, on figure \ref{fig:spread}, the boxplot of the bid-ask spread for each stock. More precisely, for each stock, we considered all the bid-ask spreads of all the observations of the stock in the training set. Furthermore, we only collected the points where a limit order was placed, updated, deleted or traded. While we can see that the spread does not seem to completely separate the stocks, it is still a good indicator of the stock with a decent variety of boxplot shapes. As we will see in the results section, the bid-ask spread was actually the most important feature in the random forest classification, thereby confirming our intuition.
 
-    Another takeaway from this plot is that most stocks are fairly liquid, with an average spread of around 0.1, which represents $10$ ticks. Nevertheless, some stock are strikingly more volatile than others, with a spread distribution that can have large variances.
-
-    \paragraph{Volume}
-    A very straightforward feature, which is actually given in the data, is the volume of the orders. We plot on figure \ref{fig:volume} the boxplot of Bid and Ask sizes for each stock. We can see that, as in the case of the bid-ask spread, the stocks separate decently well.
-
-    Volume is also a feature that we consider to be important and relevant, since it is another measure of liquidity.
+    Another takeaway from this plot is that most stocks are fairly liquid, with an average spread of around 0.1, which represents $10$ ticks. Nevertheless, some stocks are strikingly more volatile than others, with a spread distribution that can have large variances.
 
 \end{multicols}
 \begin{figure}
@@ -144,6 +142,10 @@
 \end{figure}
 \begin{multicols}{2}
 
+    \paragraph{Volume} The volume of the orders is a straightforward feature to consider, and is actually given in the data. We plot on figure \ref{fig:volume} the boxplot of Bid and Ask sizes for each stock. We can see that, the stocks separate decently well, like in the case of the bid-ask spread.
+
+    Volume is also a feature that we consider to be important and relevant, since it is another measure of liquidity.
+
     \paragraph{Price outliers (number and price value)}
     An \textit{a priori} good feature we derived was the price outliers. First, we considered the number of price outliers for each stock. More precisely, given a stock, we considered all the corresponding observations in the training set, and counted the number of price outliers over the $100$ events.
 
@@ -154,7 +156,7 @@
         \caption{Illustration of the definition of price outliers. In this example, we illustrate the case of a price outlier of order $2$.}
         \label{fig:def_outliers}
     \end{figure}
-    While this definition may seem arbitrary since the liquidity and volatility is not the same for all stocks, it is, for our purposes, a fairly sufficient way to set a definition. This is because, the average spread is around $1$ and $10$ ticks for most stocks, and as we can see on figure \ref{fig:nb_outliers}, we already include more than enough outliers for the least liquid stocks (stock 20 for example).
+    While this definition may seem arbitrary since the liquidity and volatility is not the same for all stocks, it is, for our purposes, a fairly sufficient definition. This is because, the average spread is around $1$ and $10$ ticks for most stocks, and as we can see on figure \ref{fig:nb_outliers}, we already include more than enough outliers for the least liquid stocks (stock 20 for example).
 
     The second feature we derived was the price value of the outliers. This is done by simply considering, for each stock and corresponding observation, the average price of the outliers over the $100$ events.
 
@@ -170,20 +172,6 @@
 
     \paragraph{Other unconclusive features} Among the other features we looked at, we can mention the trade proportion, price and volume per stock, the bid-ask spread distinguished by venue or the proportion of limit orders. None of these features were particularly discriminative.
 
-    \section{Data preprocessing}
-
-    Building on the previous section, we followed some pre-processing steps before training some models. Depending on the model, we used different pre-processing steps. We describe the most important ones here.
-
-    \subsection{Data cleaning, normalization and scaling}
-
-    For our models, we used the following pre-processing steps:
-    \begin{enumerate}
-        \item \textbf{Outliers removal} : we removed all observations from the training set for which at least one event had at least one value at more than $7$ standard deviations from the mean. We only considered the price, bid, ask, bid size, ask size and flux features for this operation. This removed $5808$ observations which is around $3.6\%$ of the training set.
-        \item \textbf{Log transformation} : we applied a log transformation to the flux, bid size and ask size. This specific transformation preserves the sign of the values :
-              $$\tilde{x}= \text{sign}(x)\log(1+|x|)$$
-        \item \textbf{Min-max scaling} : we further normalize the bid size and ask size features by applying a min-max scaling to the log-transformed values. The min and max are computed together on both features to preserve their relative scale.
-    \end{enumerate}
-
 \end{multicols}
 \begin{SCfigure}
     \centering
@@ -193,6 +181,20 @@
 \end{SCfigure}
 \begin{multicols}{2}
 
+    \section{Data preprocessing}
+
+    Building on the previous section, we followed some pre-processing steps before training some models. Depending on the model, we used different pre-processing steps. We describe the most important ones here.
+
+    \subsection{Data cleaning, normalization and scaling}
+
+    For our models, we used the following pre-processing steps:
+    \begin{enumerate}
+        \item \textbf{Outliers removal}: we removed all observations from the training set for which at least one event had at least one value at more than $7$ standard deviations from the mean. We only considered the price, bid, ask, bid size, ask size and flux features for this operation. This removed $5808$ observations which is around $3.6\%$ of the training set.
+        \item \textbf{Log transformation}: we applied a log transformation to the flux, bid size and ask size. This specific transformation preserves the sign of the values:
+              $$\tilde{x}= \text{sign}(x)\log(1+|x|)$$
+        \item \textbf{Min-max scaling}: we further normalize the bid size and ask size features by applying a min-max scaling to the log-transformed values. The min and max are computed together on both features to preserve their relative scale.
+    \end{enumerate}
+
     While these pre-processing steps are arbitrary, they gave much better results than some standard pre-processing steps such as standard scaling or min-max scaling on the original features.
 
     \subsection{Features for statistical models}
@@ -200,22 +202,21 @@
     One set of features that we used for the statistical models and that we can refer to as "simple features" is the following:
     \begin{enumerate}
         \item For each feature present for each event (11 features), compute min, max, mean, median, and standard deviation over the 100 events.
-        \item Do the same for the bid-ask spread, the indicator of whether the price is the best bid or ask, and the sum of bid size and ask size.
+        \item Do the same for the indicator of whether the price is the best bid or ask, and the sum of bid size and ask size.
         \item Add the features we engineered in the previous section computed over the 100 events:
               \begin{itemize}
-                  \item The Bid-ask spread
-                  \item The volume of the orders (bid and ask size)
-                  \item The number of price outliers
-                  \item The average price of the outliers
-                  \item The average flux of the price outliers for the different types of outliers (ask addition, ask update, bid update)
-                  \item The venue proportions
+                  \item The mean Bid-ask spread.
+                  \item The number of price outliers.
+                  \item The average price of the outliers.
+                  \item The average flux of the price outliers for the different types of outliers (ask addition, ask update, bid update).
+                  \item The venue proportions.
               \end{itemize}
     \end{enumerate}
-    The hand-crafted features we present here live in $\R^{49}$, and we used them to train the statistical models.
+    The hand-crafted features we present here live in $\R^{77}$, and we used them to train some statistical models.
 
     \subsection{Graph construction}
 
-    To deal with the temporal and categorical aspects of the data, one idea is to represent the data as a graph that better represents the relationships between the different events. After a bit of trial and error, we made the following arbitrary choices to construct a graph representing a sample :
+    To deal with the temporal and categorical aspects of the data, one idea is to represent the data as a graph that better represents the relationships between the different events (figure \ref{fig:graph_structure}). After a bit of trial and error, we made the following arbitrary choices to construct a graph representing a sample:
     \begin{enumerate}
         \item The graph is undirected.
         \item Each event is a node in the graph.
@@ -231,48 +232,48 @@
         \item Node features: price, bid-ask spread, bid size, ask size, flux.
         \item Edge features: action, side, trade.
     \end{itemize}
-    We also add the venue and a time feature to the nodes, so that the graph encodes all the information of the original data.
+    We also add the venue and a time feature to the nodes, so the graph encodes all the information from the original data.
 
     \section{Method}
 
-    In this section, we describe the different models we used. We experimented with three main types of models: recurrent neural networks which are well suited for sequential data, graph neural networks which exploit the graph representation of the data, and statistical models that exploit features extracted from the sequence of events. From the start we knew that our final prediction would be an ensemble of models, so we explored different types of models to maximize the diversity of the ensemble. Indeed the diversity should improve the robustness of the predictions, especially given the change of distribution between the training and the test set.
+    In this section, we describe the different models we used. We experimented with three main types of models: recurrent neural networks which are well suited for sequential data, graph neural networks which exploit the graph representation of the data, and statistical models that exploit features extracted from the sequence of events. From the start we knew that our final prediction would be an ensemble of models, so we explored different types of models to maximize the diversity of the ensemble. Indeed the diversity should improve the robustness of the predictions, which is especially important given the change of distribution we spotted between the training and the test set.
 
     \subsection{Recurrent Neural Networks}
 
-    Long-Short Term Memory (LSTM) networks are a type of recurrent neural network that are well suited for sequential data \cite{hochreiter-1997}. We used a simple LSTM model to extract features from the sequence of events. We used the following architecture inspired by the baseline :
+    Long-Short Term Memory (LSTM) networks are a type of recurrent neural networks (RNN) that are well suited for sequential data \cite{hochreiter-1997}. We used a simple LSTM model to extract features from the sequence of events. We used the following architecture inspired by the baseline:
     \begin{itemize}
         \item An embedding layer to embed the categorical features (venue, action, side, trade) over $8$ dimensions. The other features are already continuous and do not need to be embedded.
         \item A bidirectional LSTM layer with $128$ hidden units and two layers.
-        \item A linear layer with one hidden layer of size $128$.
+        \item A multi layer perceptron (MLP) with one hidden layer of size $128$.
     \end{itemize}
 
     This model is simple and fast to train, and it gave us a good baseline to compare with the other models. We quickly reached a validation accuracy of around $50\%$ with this model and some data preprocessing, which was encouraging. However we quickly realized that the model was not robust to the change of distribution between the training and the test set as it only reached around $30\%$ accuracy on the test set.
 
     \subsection{Graph Attention Networks}
 
-    Graph Attention Networks (GAT) \cite{velickovic-2018} have been shown to be effective in many tasks. Like other graph neural networks, GATs aggregate information from the neighbors of each node to compute its embedding. The main difference with other models is that GATs use an attention mechanism to weight the neighbors of each node. Specifically we used the improved version of GATs suggested in \cite{brody-2021}.
+    Graph Attention Networks (GAT) \cite{velickovic-2018} are a type of graph neural networks (GNN) that have been shown to be effective in many graph processing tasks. Like other graph neural networks, GATs aggregate information from the neighbors of each node to compute its embedding. The main difference with other models is that GATs use an attention mechanism to weight the neighbors of each node. Specifically we used the improved version of GATs suggested in \cite{brody-2021}.
 
-    Let $G$ be an undirected graph with $N$ nodes denoted $\llbracket1, N\rrbracket$. Let $d_1$ be the dimension of the node embeddings, and $h_1,\dots,h_N\in\R^{d_1}$ be the said embeddings. Let $d_2$ be the dimension of the edge embeddings, and $\left\{e_{i,j} \; | 1\leq i,j\leq N\right\}$ be the said embeddings. Let $W_1\in\R^{d'\times d_1}$, $W_2\in\R^{d'\times d_2}$ and $a\in\R^{d'}$. The attention weights are :
+    Let $G$ be an undirected graph with $N$ nodes denoted $\llbracket1, N\rrbracket$. Let $d_1$ be the dimension of the node embeddings, and $h_1,\dots,h_N\in\R^{d_1}$ be the said embeddings. Let $d_2$ be the dimension of the edge embeddings, and $\left\{e_{i,j} \; | 1\leq i,j\leq N\right\}$ be the said embeddings. Let $W_1\in\R^{d'\times d_1}$, $W_2\in\R^{d'\times d_2}$ and $a\in\R^{d'}$. The attention weights are:
     \begin{equation}
         w(h_i,h_j, e_{i,j}) = a^T \leakyrelu(W_1h_i + W_1h_j + W_2e_{i,j})
     \end{equation}
-    The attention weights are normalized using the softmax operator :
+    The attention weights are normalized using the softmax operator:
     \begin{equation}
         \alpha_{ij} = \frac{\exp(w(h_i,h_j, e_{i,j}))}{\sum_{k\in\mathcal{N}_i}\exp(w(h_i,h_k, e_{i,k}))}
     \end{equation}
-    where $\mathcal{N}_i$ denotes the set of neighbors of node $i$ in $G$. The embedding of node $i$ is then computed as :
+    where $\mathcal{N}_i$ denotes the set of neighbors of node $i$ in $G$. The embedding of node $i$ is then computed as:
     \begin{equation}
         h_i' = \leakyrelu\left(\sum_{j\in\mathcal{N}_i}\alpha_{ij}W_1h_j\right)
     \end{equation}
-    In general we will use multi-head attention, with $K$ heads, $a^{(1)},\dots,a^{(K)}\in\R^{d'/K}$, $W_1^{(1)},\dots,W_1^{(K)}\in\R^{d'/K\times d_1}$ and $W_2^{(1)},\dots,W_2^{(K)}\in\R^{d'/K\times d_2}$ :
+    In general we will use multi-head attention, with $K$ heads, $a^{(1)},\dots,a^{(K)}\in\R^{d'/K}$, $W_1^{(1)},\dots,W_1^{(K)}\in\R^{d'/K\times d_1}$ and $W_2^{(1)},\dots,W_2^{(K)}\in\R^{d'/K\times d_2}$:
     \begin{equation}
         h_i' = \leakyrelu\left(\frac{1}{K}\sum_{k=1}^K\sum_{j\in\mathcal{N}_i}\alpha_{ij}^{(k)}W_1^{(k)}h_j\right)
     \end{equation}
-    Furthermore, we will stack multiple GAT layers to obtain a deeper model. We may also apply a multi-layer perceptron to the embeddings of the last layer to obtain a more expressive representation. This model is easily parallelizable which is useful for mini-batch training.
+    Furthermore, we will stack multiple GAT layers to obtain a deeper model (instead of aggregating information from the neighbors we will look further). We may also apply a multi-layer perceptron to the embeddings of the last layer to obtain a more expressive representation. The final prediction is obtained by mean pooling over the nodes of the graph.
 
     \subsection{Other graph models}
 
-    We started out with GAT models because we already had some experience with them, and they were very effective. However, we also trained other graph models to diversify our ensemble (as long as they supported edge features in the graph). Here is an exhaustive list of models that gave us acceptable results and were added to the ensemble (in no particular order) :
+    We started out with GAT models because we already had some experience with them, and they were very effective. However, we also trained other graph models to diversify our ensemble (as long as they supported edge features in the graph). Here is an exhaustive list of models that gave us acceptable results and were added to the ensemble (in no particular order):
     \begin{itemize}
         \item Generalized GNN \cite{li-2020}
         \item Pathfinder Discovery Network (PDN) \cite{rozemberczki-2021}
@@ -285,7 +286,7 @@
 
     \subsection{Statistical models}
 
-    We used multiple statistical models on simple features extracted from the data to diversify our ensemble. These models are intuitively more robust because they rely on simple features that are less likely to be affected by the change of distribution. Here is a non exhaustive list of the models we used :
+    We used multiple statistical models on simple features extracted from the data to diversify our ensemble. These models are intuitively more robust because they rely on simple features that are less likely to be affected by a change of distribution. Here is a non-exhaustive list of the models we used:
     \begin{itemize}
         \item Random Forest Classifier
         \item Ada Boost Classifier
@@ -299,7 +300,7 @@
     Last year's CFM challenge also involved adapting to a change of distribution between the training and the test set. Inspired by the winning solution of last year's challenge, we devised a similar model. It is a simple model motivated by boosting methods, that learns the residuals of the predictions of a base model.
     \begin{enumerate}
         \item A random forest classifier is trained on the training set. This model is able to output a probability distribution over the classes.
-        \item For each class, three models are trained to predict the residuals of the random forest classifier (a random forest regressor, a k-nearest neighbors regressor and a linear regressor).
+        \item For each class, three models are trained to predict the residuals of the random forest classifier (a Ridge regressor, a k-nearest neighbors regressor and a linear regressor).
         \item For each class, the three models are stacked using a linear regressor.
     \end{enumerate}
 
@@ -307,15 +308,15 @@
 
     \subsection{Ensemble}
 
-    We used a simple ensemble of all the models to make our final prediction. We simply averaged the predicted probabilities of all the models and took the class with the highest probability. We weighted the importance of each model based on our intuitions, the validation accuracies and the test accuracies. We also wanted to preserve the diversity of the ensemble, so we did not give too much importance to the best models.
+    We used a simple ensemble of all the models to make our final prediction. We simply averaged the predicted probabilities of all the models and took the class with the highest probability. From our experience, more complex ensembles are rarely worth the effort. We weighted the importance of each model based on our intuitions, the validation accuracies and the test accuracies. We also wanted to preserve the diversity of the ensemble, so we did not give too much importance to the best models.
 
-    In fine the following models were used in the ensemble :
+    In fine the following models were used in the ensemble:
     \begin{itemize}
         \item Two random forest classifiers trained on the simple features.
         \item Franck Zibi's model trained on the simple features.
-        \item An MLP trained on the simple features.
+        \item A MLP trained on the simple features.
         \item A dozen of GAT models trained on the graph representation of the data.
-        \item One Generalized GNN, one PDN, one PNA, one Graph transformer and one General GNN.
+        \item One Generalized GNN, one PDN, one PNA, one Graph transformer and one General GNN, all trained on the graph representation of the data.
     \end{itemize}
 
     \section{Training}
@@ -323,44 +324,44 @@
     For all the models we used the same split of the training set into a training and a validation set. We used $90\%$ of the training set for training and $10\%$ for validation. We did not use cross validation because the training set was already very large and well-balanced.
 
     \subsection{Loss}
-    Like in most classification tasks, we used the cross-entropy loss to train our models. When it became clear that the distribution of the test set was very different from the training set, we experimented with different loss functions to make the models more robust to this change. We settled on Minimum Class Confusion (MCC) loss \cite{jin-2020} which aims at minimizing the confusion between the classes on a target domain (the test set in our case).
+    Like in most classification tasks, we used the cross-entropy loss to train our deep learning models. When it became clear that the distribution of the test set was very different from the training set, we experimented with different loss functions to make the models more robust to this change. We settled on Minimum Class Confusion (MCC) loss \cite{jin-2020} which aims at minimizing the confusion between the classes on a target domain (the test set in our case).
 
-    Let $(X_n)_{1\leq n\leq N}$ be a batch of testing samples, and $\hat{Y}_n = F(X_n)\in\R^{24}$ be the output of the model for sample $X_n$. MCC uses temperature scaling to soften the predictions :
+    Let $(X_n)_{1\leq n\leq N}$ be a batch of testing observations, and $\hat{Y}_n = F(X_n)\in\R^{24}$ be the output of the model for observation $X_n$. MCC uses temperature scaling to soften the predictions:
     \begin{equation}
         \tilde{Y}_{n,i} = \frac{\exp\left(\hat{Y}_{n,i}/T\right)}{\sum_{j=1}^{24}\exp\left(\hat{Y}_{n,j}/T\right)}
     \end{equation}
-    where $T>0$ is the temperature (we used $T=2.5$). We then compute an entropy over the predictions :
+    where $T>0$ is the temperature (we used $T=2.5$). We then compute the entropy associated with the prediction for the observation $n$:
     \begin{equation}
         H_n = -\sum_{i=1}^{24}\tilde{Y}_{n,i}\log\left(\tilde{Y}_{n,i}\right)
     \end{equation}
-    This entropy will be used to give more importance to samples for which the model is more confident. We then use the following weights :
+    This entropy is used to give more importance to samples for which the model is more confident. We compute the following weights:
     \begin{equation}
         W_n = N\times\frac{1+\exp(-H_n)}{\sum_{i=1}^{N} 1+\exp(-H_i)}
     \end{equation}
-    where $N$ is the batch size. This weight makes use of Laplace smoothing for numerical stability. Finally the class confusion between class $i$ and class $j$ is given by :
+    where $N$ is the batch size. This weight makes use of Laplace smoothing for numerical stability. Finally the class confusion between class $i$ and class $j$ is given by:
     \begin{equation}
         C_{i,j} = \tilde{Y}_{\cdot,i}^T \text{diag}(W_1,\dots,W_B) \tilde{Y}_{\cdot,j}
     \end{equation}
-    This class confusion is normalized to account for class imbalance :
+    This class confusion is normalized to account for class imbalance:
     \begin{equation}
         \tilde{C}_{i,j} = \frac{C_{i,j}}{\sum_{k=1}^{24}C_{i,k}}
     \end{equation}
-    Which gives us the final loss :
+    Which gives us the final loss:
     \begin{equation}
         \mathcal{L}_{\text{MCC}} = \frac{1}{24}\sum_{i=1}^{24}\sum_{j=1}^{24}\left|\tilde{C}_{i,j}\right|
     \end{equation}
 
-    Note that this note does not use labels from the target domain, and is therefore unsupervised. It can simply be added to the supervised loss to make the model more robust to the change of distribution :
+    Note that this loss does not use labels from the target domain, and is therefore unsupervised. It can simply be added to the supervised loss to make the model more robust to the change of distribution:
     \begin{equation}
         \mathcal{L} = \mathcal{L}_{\text{CE}} + \mu\mathcal{L}_{\text{MCC}}
     \end{equation}
-    we found that $\mu=0.1$ was a good value and we could easily go as high as $\mu=1$ or $\mu=10$ for models that trained easily. In practice this MCC loss is computed on a batch of the test set every $10$ iterations of the training loop. We found that it did raise the accuracy of the models on the test set by around $5\%$.
+    we found that $\mu=0.1$ was a good value and we could easily go as high as $\mu=1$ or $\mu=10$ for models that trained easily. In practice this MCC loss is computed on a batch of the test set, and only every $10$ iterations of the training loop. We found that it did have an impact on the generalization capability of the models as it increased the accuracy of the GAT model on the test set by around $5\%$.
 
     \subsection{Optimizer}
 
     We used the Adam optimizer with a starting learning rate of $5\times10^{-3}$. We did not use weight decay as it hindered the training of the models.
 
-    We used a scheduler to automatically decrease the learning rate. The scheduler decreased the learning rate by a factor of $0.95$ every epoch, which yielded a learning rate of around $1\times10^{-3}$ after $30$ epochs which is a typical number of epochs for our models.
+    We used a scheduler to automatically decrease the learning rate. The scheduler decreased the learning rate by a factor of $0.95$ every epoch, which yielded a learning rate of around $1\times10^{-3}$ after $30$ epochs which is a typical number of epochs for our models. The learning rate schedule is presented in figure \ref{fig:learning_rate}.
 
     \begin{figure}[H]
         \centering
@@ -369,19 +370,19 @@
         \label{fig:learning_rate}
     \end{figure}
 
-    We generally stopped the training quickly when the accuracy on the validation set stopped increasing significantly. This is motivated by the change of distribution between the training and the test set, which means that we do not want to overfit the training set.
+    We generally stopped the training quickly when the accuracy on the validation set stopped increasing significantly. This is also motivated by the change of distribution between the training set and the test set, which means that we do not want to overfit the training set.
 
     \subsection{Other unsuccessful experiments}
 
-    We tried other tricks to make the models more robust to the change of distribution.
+    We tried other tricks to make the models more robust to a change of distribution.
     \begin{itemize}
-        \item We experimented with data augmentation on the training set : given the high stochasticity of the data, we could easily generate new samples by adding some noise to the prices, the volumes, the flux, etc.
+        \item We experimented with data augmentation on the training set: given the high stochasticity of the data, we could easily generate new samples by adding some noise to the prices, the volumes, the flux, etc. We found that this did not improve the generalization capability of the models.
         \item Starting with a trained model, we extracted the test samples for which it was the most confident, and submitted them to the leaderboard (with the rest left at random). We could infer that we had around $80\%$ accuracy on these samples. Thus we tried fine-tuning a model on these samples, but it did not improve the accuracy on the test set.
     \end{itemize}
 
     \subsection{Monitoring metrics}
 
-    For intellegible training and comparison of deep learning models, we monitored the following metrics at each epoch :
+    For intellegible training and comparison of deep learning models, we monitored the following metrics at each epoch:
     \begin{itemize}
         \item Training accuracy (figure \ref{fig:train_accuracy})
         \item Validation accuracy (figure \ref{fig:val_accuracy})
@@ -419,30 +420,30 @@
     \begin{figure}[H]
         \centering
         \includegraphics[width=\columnwidth]{figures/small_calibration.png}
-        \caption{Calibration of the first class of the GAT model. The transparent lines represent the initial values, and the solid lines represent the calibrated values. The dashed line represents the ideal calibration. We reach an almost perfect calibration on the validation data. Note that the test data was represented using predicted class as true labels, which is why the shape of its calibration curve is meaningless. The interest of showing it is to see if the calibration affects the test predictions.}
+        \caption{Calibration of the first class of the GAT model. The transparent lines represent the initial values, and the solid lines represent the calibrated values. The dashed line represents the ideal calibration. We reach an almost perfect calibration on the validation data. Note that the test data was represented using predicted class as true labels, which is why the shape of its calibration curve is meaningless. The interest of displaying it is to see if the calibration affects the test predictions.}
         \label{fig:calibration}
     \end{figure}
 
     The calibration process is typically carried out on the validation data, rather than the training data. This is because the model has already been fitted to the training data, and calibrating on this data could lead to a biased result. The choice of isotonic regression over other calibration techniques is motivated by its simplicity and effectiveness, while other techniques such as Platt scaling or beta calibration delivered similar results.
 
-    In the end we did not have enough time to use calibration, but we believe that calibrating all the models before ensembling them would be a good idea.
+    In the end we did not have enough time to systematically calibrate our models, but we believe that doing so before ensembling them would be a good idea.
 
     \section{Results}
 
     \subsection{Random Forest Classifier}
     Throughout our experiments, we found the random forest classifier handy for feature selection, as well as for training a model purely based on hand-crafted features.
 
-    We present in this section the results of $2$ random forest classifiers that we trained. The first model was trained on the Bid-Ask spread, the Bid and Ask volume, the number of price outliers, the price outliers, the flux of the price outliers, and the proportion of each venues on which the orders were placed. The second model was only trained on a subset of the features of the first model, which were the Bid-Ask spread, the Bid and Ask volume and the venue proportions.
+    We present in this section the results of $2$ random forest classifiers that we trained. The first model was trained on the Bid-Ask spread, the Bid and Ask volume, the number of price outliers, the value of price outliers, the flux of the price outliers, and the proportion of each venues on which the orders were placed. The second model was only trained on a subset of the features of the first model, which were the Bid-Ask spread, the Bid and Ask volume and the venue proportions.
 
-    First, we take a look at the feature importance of the first model in figure \ref{fig:feature_importance}. We can see that the bid-ask spread is by far the most important feature, which confirms our initial intuition. In second position, we have the bid and ask volume. The price outliers in terms of number, price value and flux (addition only) form a third group of important features. The outlier features in terms of update are the least important features, with importances of $0 \%$.
+    First, we looked at the feature importance for the first model in figure \ref{fig:feature_importance}. The bid-ask spread is by far the most important feature, which confirms our initial intuition. In second position, we have the bid and ask volume. The price outliers in terms of number, price value and flux (addition only) form a third group of important features. The outlier features in terms of update are the least important features, with importances of almost $0\%$.
 
     Second, we present a very interesting result that partly framed our approach for the challenge. We found that the first model had a $49\%$ accuracy on the validation set, while the second model had a $28\%$ accuracy. However, both models performed very similarly on the test set, with an accuracy of respectively $22\%$ and $20\%$. This result is very important because it gives us a clear indication that the "outlier" features, while being very discriminative on the training set, are almost irrelevant on the test set. At this point, we had $2$ choices: either we could eliminate the outlier features from our ensemble, or we could try to find a model that would be able to detect how the "outlier" features distribution changed in the test set.
 
-    \subsection{Ensemble of all the models}
+    \subsection{Overall results}
 
-    We present our main accuracy results in table \ref{tab:results}. The very first thing we note is the low accuracies on the test set. As we mentioned earlier, the distribution of the test set is very different from the training set, and this is reflected in the low accuracies. This leads to vastly different models on the validation set getting similar accuracies on the test set.
+    We present our main accuracy results in table \ref{tab:results}. The very first thing we note is the low accuracies on the test set. As we mentioned earlier, the distribution of the test set is different from the training set, and this is reflected in the low accuracies. This leads to vastly different models on the validation set getting similar accuracies on the test set.
 
-    The GAT model gives the best results with validation accuracies greater than $70\%$. However it also fails to generalize to the test set. Note that the Generalized GNN model has good results but its training was not stable, so we would not trust it as much as the GAT models. The models based on features (Franck Zibi's and the MLP one) have some of the worst results, which is disappointing since we expected them to be more robust to the change of distribution.
+    The GAT model gives the best results with validation accuracies greater than $70\%$. However it also fails to generalize to the test set. Note that the Generalized GNN model has good results but its training was not stable, so we would not trust it as much as the GAT models. The models based on features (Franck Zibi's and the MLP one) have some of the worst results, which is disappointing since we expected them to be more robust to a change of distribution. Note that the very high training accuracy of Franck Zibi's model is due to the use of random forests that are very good at fitting the training data.
 
     Finally the ensemble of all the models gives us the best results with a test accuracy of $40\%$. We expected the ensemble to give us the best results, but we were surprised by the low accuracy, as it only gives us a $5\%$ improvement over the best single model.
 
@@ -473,7 +474,7 @@
                     \hline
                     Generalized GNN            & 0.73                   & 0.71                     & 0.35               \\
                     \hline
-                    Final ensemble             &                        &                          & 0.40               \\
+                    Final ensemble             & 0.83                   & 0.81                     & 0.40               \\
                     \hline
                 \end{tabular}
             }
@@ -482,6 +483,7 @@
         \label{tab:results}
     \end{table}
 
+    \section{Discussion}
 
     \subsection{Predictions analysis}
 
@@ -509,12 +511,15 @@
     \end{figure}
     While our two first examples were cherry-picked, in many cases the model would be very uncertain in its predictions, and the perturbations would still be very uncertain. This is the case in figure \ref{fig:predictions_3}. Because the samples we tried were not overwhelmingly interesting cases, we did not explore this further. However note that the results on the test set were very similar to the results on the validation set, and this approache seems promising to improve the accuracy of the models.
 
-    \section{Conclusion}
-    Throughout this challenge, we performed a thorough analysis of the data with multiple visualizations and statistical tests. This allowed us to get a better understanding of the challenge and to engineer some features that were very discriminative on the training set. We also used some \textit{a priori} knowledge of financial markets to direct our process. In a second step, we trained a wide variety of models to diversify our ensemble. We used recurrent neural networks, graph neural networks, statistical models and implemented a model inspired by the winning solution of last year's challenge, Franck Zibi's model. We also experimented with different loss functions to make the models more robust to the change of distribution between the training and the test set. Finally, we monitored the training of the models with multiple metrics, and we looked into the predictions of the models to try to understand why they were so bad.
+    \subsection{Conclusion}
+    Throughout this challenge, we performed a thorough analysis of the data with multiple visualizations and statistical tests. This allowed us to get a better understanding of the challenge and to engineer some features that were very discriminative on the training set. We also used some \textit{a priori} knowledge of financial markets to direct our process. In a second step, we trained a wide variety of models to diversify our ensemble. We used recurrent neural networks, graph neural networks, statistical models and implemented a model inspired by the winning solution of last year's challenge, Franck Zibi's model. We also added a loss function relevant for the task of \textit{domain adaptation} to make the models more robust to the change of distribution between the training and the test set. Finally we analyzed our results extensively to try and fix the low accuracy of our models on the test set despite good results on the validation set.
 
-    Overall, while we managed to achieve a $40\%$ accuracy on the test set, we are not satisfied with the results. We believe that the main reason for the low accuracy is the change of distribution between the training and the test set. Our main theory is that the "outlier" features that were very discriminative on the training set were almost irrelevant on the test set. An interesting approach, that we only slightly explored, would be to train a model free of all the "outlier" features, but on a granular level (i.e. by deleting events and not whole samples).
+    Overall, while we managed to achieve a $40\%$ accuracy on the test set, we are not satisfied with our results. We believe that the main reason for the low accuracy can be found in the distribution of the test set. While we understand the practical importance of having a test set from a different period of time, we believe that in that case it would be beneficial to have time series data so that trend changes can be detected and exploited on the test set.
+
+    Our main theory is that the "outlier" features that were very discriminative on the training set were almost irrelevant on the test set. An interesting approach, that we only slightly explored, would be to train a model free of all the "outlier" features, but on a granular level (i.e. by deleting events and not whole samples). This approach cannot be easily implemented with LSTMs, but is very well suited for graph neural networks.
 
     \newpage
+
     \bibliography{bibliography}
 
 \end{multicols}
@@ -598,6 +603,8 @@
     \label{fig:mcc_loss}
 \end{figure}
 
+\newpage
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{figures/calibration.png}
@@ -607,7 +614,7 @@
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\columnwidth]{figures/feature_importance.png}
+    \includegraphics[width=0.7\columnwidth]{figures/feature_importance.png}
     \caption{Feature importance of the random forest classifier.}
     \label{fig:feature_importance}
 \end{figure}
